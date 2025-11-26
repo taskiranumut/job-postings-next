@@ -72,10 +72,9 @@ export function JobPostingsTable({ postings: initialPostings }) {
               <TableHead className="w-[140px]">Eklenme Tarihi</TableHead>
               <TableHead className="w-[80px] text-center">LLM</TableHead>
               <TableHead>Platform</TableHead>
-              <TableHead className="w-[150px]">URL</TableHead>
               <TableHead>Raw Text</TableHead>
-              <TableHead>Job Title</TableHead>
-              <TableHead>Company</TableHead>
+              <TableHead className="max-w-[200px]">Job Title</TableHead>
+              <TableHead className="max-w-[200px]">Company</TableHead>
               <TableHead className="w-[120px]">İşlemler</TableHead>
             </TableRow>
           </TableHeader>
@@ -95,18 +94,15 @@ export function JobPostingsTable({ postings: initialPostings }) {
                   )}
                 </TableCell>
                 <TableCell>
-                  <Badge variant="secondary">{posting.platform_name}</Badge>
-                </TableCell>
-                <TableCell>
                   <a
                     href={posting.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex max-w-[130px] items-center gap-1 truncate text-sm text-muted-foreground hover:text-foreground"
+                    className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
                     title={posting.url}
                   >
+                    <Badge variant="secondary">{posting.platform_name}</Badge>
                     <ExternalLink className="size-3 shrink-0" />
-                    <span className="truncate">{posting.url}</span>
                   </a>
                 </TableCell>
                 <TableCell>
@@ -114,8 +110,12 @@ export function JobPostingsTable({ postings: initialPostings }) {
                     {posting.raw_text}
                   </p>
                 </TableCell>
-                <TableCell>{posting.job_title || '-'}</TableCell>
-                <TableCell>{posting.company_name || '-'}</TableCell>
+                <TableCell className="max-w-[200px] truncate">
+                  {posting.job_title || '-'}
+                </TableCell>
+                <TableCell className="max-w-[200px] truncate">
+                  {posting.company_name || '-'}
+                </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
                     <Button
@@ -192,4 +192,3 @@ export function JobPostingsTable({ postings: initialPostings }) {
     </>
   );
 }
-
