@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Briefcase, PlusCircle, LayoutDashboard, Home } from 'lucide-react';
+import Image from 'next/image';
+import { PlusCircle, LayoutDashboard, Home } from 'lucide-react';
 
 export function Header() {
   return (
@@ -10,7 +11,16 @@ export function Header() {
             href="/"
             className="flex items-center gap-2 text-lg text-ring hover:text-primary transition-colors"
           >
-            <Briefcase className="h-5 w-5" />
+            <Image
+              src="/logo-dark.png"
+              alt="Job Postings Management"
+              width={0}
+              height={0}
+              sizes="100vw"
+              className="h-8 w-auto"
+              style={{ width: 'auto', height: '2rem' }}
+              priority
+            />
             <span className="hidden sm:inline-block">
               Job Postings Management
             </span>
