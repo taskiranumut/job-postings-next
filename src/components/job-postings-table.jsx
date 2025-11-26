@@ -6,6 +6,7 @@ import {
   useMemo,
   useEffect,
   useCallback,
+  memo,
 } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -64,6 +65,14 @@ import { deleteJobPosting } from '@/lib/actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import dayjs from 'dayjs';
 
+// Array karşılaştırma helper'ı (JSON.stringify'dan daha hızlı)
+function arraysEqual(a, b) {
+  if (a.length !== b.length) return false;
+  const sortedA = [...a].sort();
+  const sortedB = [...b].sort();
+  return sortedA.every((val, i) => val === sortedB[i]);
+}
+
 function PlatformLink({ url, platformName, className, badgeClassName }) {
   return (
     <a
@@ -79,7 +88,7 @@ function PlatformLink({ url, platformName, className, badgeClassName }) {
   );
 }
 
-function MultiSelect({
+const MultiSelect = memo(function MultiSelect({
   options,
   selected,
   onChange,
@@ -137,35 +146,93 @@ function MultiSelect({
       </PopoverContent>
     </Popover>
   );
-}
+});
 
 const LLM_STATUS_OPTIONS = [
   { value: 'processed', label: 'İşlendi' },
   { value: 'pending', label: 'Bekliyor' },
 ];
 
-function FilterBar({
+// FilterBar kendi içinde local state tutar - parent'ı gereksiz render etmez
+// key prop ile reset edildiğinde tamamen yeniden oluşturulur
+const FilterBar = memo(function FilterBar({
   platforms,
-  selectedPlatforms,
-  onPlatformChange,
-  llmStatus,
-  onLlmStatusChange,
-  jobTitle,
-  onJobTitleChange,
-  company,
-  onCompanyChange,
+  initialPlatforms,
+  initialLlmStatus,
+  initialJobTitle,
+  initialCompany,
   onSubmit,
   onClearAll,
   hasActiveFilters,
-  isDirty,
 }) {
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      onSubmit();
-    }
-  };
+  // Local state - bu değişiklikler parent'ı etkilemez
+  // Initial değerler key ile reset edilerek güncellenir
+  const [localPlatforms, setLocalPlatforms] = useState(initialPlatforms);
+  const [localLlmStatus, setLocalLlmStatus] = useState(initialLlmStatus);
+  const [localJobTitle, setLocalJobTitle] = useState(initialJobTitle);
+  const [localCompany, setLocalCompany] = useState(initialCompany);
 
-  const platformOptions = platforms.map((p) => ({ value: p, label: p }));
+  // isDirty hesaplama - artık local state ile
+  const isDirty = useMemo(() => {
+    return (
+      !arraysEqual(localPlatforms, initialPlatforms) ||
+      !arraysEqual(localLlmStatus, initialLlmStatus) ||
+      localJobTitle !== initialJobTitle ||
+      localCompany !== initialCompany
+    );
+  }, [
+    localPlatforms,
+    initialPlatforms,
+    localLlmStatus,
+    initialLlmStatus,
+    localJobTitle,
+    initialJobTitle,
+    localCompany,
+    initialCompany,
+  ]);
+
+  const handleSubmit = useCallback(() => {
+    onSubmit({
+      platforms: localPlatforms,
+      llmStatus: localLlmStatus,
+      jobTitle: localJobTitle,
+      company: localCompany,
+    });
+  }, [onSubmit, localPlatforms, localLlmStatus, localJobTitle, localCompany]);
+
+  const handleClear = useCallback(() => {
+    setLocalPlatforms([]);
+    setLocalLlmStatus([]);
+    setLocalJobTitle('');
+    setLocalCompany('');
+    onClearAll();
+  }, [onClearAll]);
+
+  const handleKeyDown = useCallback(
+    (e) => {
+      if (e.key === 'Enter' && isDirty) {
+        handleSubmit();
+      }
+    },
+    [isDirty, handleSubmit]
+  );
+
+  const platformOptions = useMemo(
+    () => platforms.map((p) => ({ value: p, label: p })),
+    [platforms]
+  );
+
+  const llmStatusLabel = useCallback(
+    (s) =>
+      s.length === 2
+        ? 'Tümü'
+        : s.includes('processed')
+        ? 'İşlendi'
+        : 'Bekliyor',
+    []
+  );
+
+  const platformLabel = useCallback((s) => `${s.length} platform`, []);
 
   return (
     <div className="flex flex-wrap items-end gap-3">
@@ -175,16 +242,10 @@ function FilterBar({
         </Label>
         <MultiSelect
           options={LLM_STATUS_OPTIONS}
-          selected={llmStatus}
-          onChange={onLlmStatusChange}
+          selected={localLlmStatus}
+          onChange={setLocalLlmStatus}
           placeholder="Durum seçin"
-          selectedLabel={(s) =>
-            s.length === 2
-              ? 'Tümü'
-              : s.includes('processed')
-              ? 'İşlendi'
-              : 'Bekliyor'
-          }
+          selectedLabel={llmStatusLabel}
         />
       </div>
       <div className="w-full min-w-[180px] sm:w-auto">
@@ -193,10 +254,10 @@ function FilterBar({
         </Label>
         <MultiSelect
           options={platformOptions}
-          selected={selectedPlatforms}
-          onChange={onPlatformChange}
+          selected={localPlatforms}
+          onChange={setLocalPlatforms}
           placeholder="Platform seçin"
-          selectedLabel={(s) => `${s.length} platform`}
+          selectedLabel={platformLabel}
         />
       </div>
       <div className="w-full min-w-[180px] sm:w-auto">
@@ -205,8 +266,8 @@ function FilterBar({
         </Label>
         <Input
           placeholder="Ara..."
-          value={jobTitle}
-          onChange={(e) => onJobTitleChange(e.target.value)}
+          value={localJobTitle}
+          onChange={(e) => setLocalJobTitle(e.target.value)}
           onKeyDown={handleKeyDown}
           className="h-9"
         />
@@ -217,15 +278,15 @@ function FilterBar({
         </Label>
         <Input
           placeholder="Ara..."
-          value={company}
-          onChange={(e) => onCompanyChange(e.target.value)}
+          value={localCompany}
+          onChange={(e) => setLocalCompany(e.target.value)}
           onKeyDown={handleKeyDown}
           className="h-9"
         />
       </div>
-      <div className="flex  w-full gap-2 sm:w-auto pt-2 sm:pt-0">
+      <div className="flex w-full gap-2 pt-2 sm:w-auto sm:pt-0">
         <Button
-          onClick={onSubmit}
+          onClick={handleSubmit}
           className="h-9 flex-1 sm:flex-none"
           disabled={!isDirty}
         >
@@ -234,8 +295,7 @@ function FilterBar({
         </Button>
         <Button
           variant="ghost"
-          // size="md"
-          onClick={onClearAll}
+          onClick={handleClear}
           className="h-9 text-muted-foreground"
           title="Filtreleri temizle"
           disabled={!hasActiveFilters}
@@ -245,7 +305,7 @@ function FilterBar({
       </div>
     </div>
   );
-}
+});
 
 export function JobPostingsTable({ postings: initialPostings }) {
   const router = useRouter();
@@ -271,70 +331,35 @@ export function JobPostingsTable({ postings: initialPostings }) {
   const appliedJobTitle = searchParams.get('job_title') || '';
   const appliedCompany = searchParams.get('company') || '';
 
-  // Form state (local)
-  const [formPlatforms, setFormPlatforms] = useState(appliedPlatforms);
-  const [formLlmStatus, setFormLlmStatus] = useState(appliedLlmStatus);
-  const [formJobTitle, setFormJobTitle] = useState(appliedJobTitle);
-  const [formCompany, setFormCompany] = useState(appliedCompany);
-
-  // URL değiştiğinde form state'i güncelle
-  useEffect(() => {
-    setFormPlatforms(appliedPlatforms);
-    setFormLlmStatus(appliedLlmStatus);
-    setFormJobTitle(appliedJobTitle);
-    setFormCompany(appliedCompany);
-  }, [appliedPlatforms, appliedLlmStatus, appliedJobTitle, appliedCompany]);
-
   // Benzersiz platform listesi
   const uniquePlatforms = useMemo(() => {
     const platforms = postings.map((p) => p.platform_name).filter(Boolean);
     return [...new Set(platforms)].sort();
   }, [postings]);
 
-  // Form dirty kontrolü
-  const isDirty = useMemo(() => {
-    const platformsChanged =
-      JSON.stringify([...formPlatforms].sort()) !==
-      JSON.stringify([...appliedPlatforms].sort());
-    const llmStatusChanged =
-      JSON.stringify([...formLlmStatus].sort()) !==
-      JSON.stringify([...appliedLlmStatus].sort());
-    const jobTitleChanged = formJobTitle !== appliedJobTitle;
-    const companyChanged = formCompany !== appliedCompany;
-    return (
-      platformsChanged || llmStatusChanged || jobTitleChanged || companyChanged
-    );
-  }, [
-    formPlatforms,
-    appliedPlatforms,
-    formLlmStatus,
-    appliedLlmStatus,
-    formJobTitle,
-    appliedJobTitle,
-    formCompany,
-    appliedCompany,
-  ]);
+  // Filtreleri URL'e yaz (submit) - FilterBar'dan çağrılır
+  const submitFilters = useCallback(
+    ({ platforms, llmStatus, jobTitle, company }) => {
+      const params = new URLSearchParams();
 
-  // Filtreleri URL'e yaz (submit)
-  const submitFilters = useCallback(() => {
-    const params = new URLSearchParams();
+      if (platforms.length > 0) {
+        params.set('platform', platforms.join(','));
+      }
+      if (llmStatus.length > 0) {
+        params.set('llm_status', llmStatus.join(','));
+      }
+      if (jobTitle.trim()) {
+        params.set('job_title', jobTitle.trim());
+      }
+      if (company.trim()) {
+        params.set('company', company.trim());
+      }
 
-    if (formPlatforms.length > 0) {
-      params.set('platform', formPlatforms.join(','));
-    }
-    if (formLlmStatus.length > 0) {
-      params.set('llm_status', formLlmStatus.join(','));
-    }
-    if (formJobTitle.trim()) {
-      params.set('job_title', formJobTitle.trim());
-    }
-    if (formCompany.trim()) {
-      params.set('company', formCompany.trim());
-    }
-
-    const queryString = params.toString();
-    router.push(queryString ? `?${queryString}` : '?', { scroll: false });
-  }, [formPlatforms, formLlmStatus, formJobTitle, formCompany, router]);
+      const queryString = params.toString();
+      router.push(queryString ? `?${queryString}` : '?', { scroll: false });
+    },
+    [router]
+  );
 
   // Filtrelenmiş postings (URL'deki değerlere göre)
   const filteredPostings = useMemo(() => {
@@ -397,19 +422,47 @@ export function JobPostingsTable({ postings: initialPostings }) {
     (appliedCompany ? 1 : 0);
 
   const clearAllFilters = useCallback(() => {
-    setFormPlatforms([]);
-    setFormLlmStatus([]);
-    setFormJobTitle('');
-    setFormCompany('');
     router.push('?', { scroll: false });
   }, [router]);
 
-  const openDeleteModal = (id) => {
+  // FilterBar için key - URL değiştiğinde component resetlenir
+  const filterBarKey = useMemo(
+    () =>
+      `${appliedPlatforms.join(',')}-${appliedLlmStatus.join(
+        ','
+      )}-${appliedJobTitle}-${appliedCompany}`,
+    [appliedPlatforms, appliedLlmStatus, appliedJobTitle, appliedCompany]
+  );
+
+  const filterBarProps = useMemo(
+    () => ({
+      platforms: uniquePlatforms,
+      initialPlatforms: appliedPlatforms,
+      initialLlmStatus: appliedLlmStatus,
+      initialJobTitle: appliedJobTitle,
+      initialCompany: appliedCompany,
+      onSubmit: submitFilters,
+      onClearAll: clearAllFilters,
+      hasActiveFilters,
+    }),
+    [
+      uniquePlatforms,
+      appliedPlatforms,
+      appliedLlmStatus,
+      appliedJobTitle,
+      appliedCompany,
+      submitFilters,
+      clearAllFilters,
+      hasActiveFilters,
+    ]
+  );
+
+  const openDeleteModal = useCallback((id) => {
     setSelectedPostingId(id);
     setDeleteModalOpen(true);
-  };
+  }, []);
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     if (!selectedPostingId) return;
 
     startTransition(async () => {
@@ -425,7 +478,7 @@ export function JobPostingsTable({ postings: initialPostings }) {
         setSelectedPostingId(null);
       }
     });
-  };
+  }, [selectedPostingId]);
 
   if (postings.length === 0) {
     return (
@@ -435,22 +488,6 @@ export function JobPostingsTable({ postings: initialPostings }) {
       </div>
     );
   }
-
-  const filterBarProps = {
-    platforms: uniquePlatforms,
-    selectedPlatforms: formPlatforms,
-    onPlatformChange: setFormPlatforms,
-    llmStatus: formLlmStatus,
-    onLlmStatusChange: setFormLlmStatus,
-    jobTitle: formJobTitle,
-    onJobTitleChange: setFormJobTitle,
-    company: formCompany,
-    onCompanyChange: setFormCompany,
-    onSubmit: submitFilters,
-    onClearAll: clearAllFilters,
-    hasActiveFilters,
-    isDirty,
-  };
 
   return (
     <>
@@ -470,7 +507,7 @@ export function JobPostingsTable({ postings: initialPostings }) {
 
           {/* Desktop Filters */}
           <div className="hidden lg:block">
-            <FilterBar {...filterBarProps} />
+            <FilterBar key={`desktop-${filterBarKey}`} {...filterBarProps} />
           </div>
 
           {/* Mobile Filter Toggle */}
@@ -499,9 +536,10 @@ export function JobPostingsTable({ postings: initialPostings }) {
               </CollapsibleTrigger>
               <CollapsibleContent className="pt-4">
                 <FilterBar
+                  key={`mobile-${filterBarKey}`}
                   {...filterBarProps}
-                  onSubmit={() => {
-                    submitFilters();
+                  onSubmit={(filters) => {
+                    submitFilters(filters);
                     setMobileFiltersOpen(false);
                   }}
                   onClearAll={() => {
@@ -532,13 +570,21 @@ export function JobPostingsTable({ postings: initialPostings }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[140px]">Eklenme Tarihi</TableHead>
-                <TableHead className="w-[80px] text-center">LLM</TableHead>
-                <TableHead>Platform</TableHead>
-                <TableHead>Raw Text</TableHead>
-                <TableHead className="max-w-[200px]">Job Title</TableHead>
-                <TableHead className="max-w-[200px]">Company</TableHead>
-                <TableHead className="w-[120px]">İşlemler</TableHead>
+                <TableHead className="w-[140px] font-bold">
+                  Eklenme Tarihi
+                </TableHead>
+                <TableHead className="w-[80px] text-center font-bold">
+                  LLM
+                </TableHead>
+                <TableHead className="font-bold">Platform</TableHead>
+                <TableHead className="font-bold">Raw Text</TableHead>
+                <TableHead className="max-w-[200px] font-bold">
+                  Job Title
+                </TableHead>
+                <TableHead className="max-w-[200px] font-bold">
+                  Company
+                </TableHead>
+                <TableHead className="w-[120px] font-bold">İşlemler</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
