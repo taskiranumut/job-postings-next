@@ -2,6 +2,7 @@
 
 import { supabase } from './supabase';
 import { revalidatePath } from 'next/cache';
+import { processPendingJobs } from './processPendingJobs';
 
 // ==================== JOB POSTINGS ====================
 
@@ -119,23 +120,16 @@ export async function getLLMLogs(limit = 20) {
 }
 
 export async function processLLMOnce(limit = 5) {
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/llm/process-once`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ limit }),
-    }
-  );
+  try {
+    const result = await processPendingJobs(limit);
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || 'Process failed');
+    revalidatePath('/llm-dashboard');
+    revalidatePath('/');
+
+    return result;
+  } catch (error) {
+    throw new Error(error.message || 'Process failed');
   }
-
-  revalidatePath('/llm-dashboard');
-  revalidatePath('/');
-  return await response.json();
 }
 
 export async function resetLLMProcessing() {
@@ -154,4 +148,3 @@ export async function resetLLMProcessing() {
   revalidatePath('/');
   return { count: data?.length || 0 };
 }
-
