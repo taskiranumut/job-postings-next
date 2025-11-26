@@ -123,7 +123,7 @@ export function JobForm({ posting, mode = 'create' }) {
             value={formData.platform_name}
             onValueChange={(value) => handleChange('platform_name', value)}
           >
-            <SelectTrigger id="platform">
+            <SelectTrigger id="platform" className="w-full">
               <SelectValue placeholder="Platform seçiniz" />
             </SelectTrigger>
             <SelectContent>
@@ -152,10 +152,9 @@ export function JobForm({ posting, mode = 'create' }) {
           <Textarea
             id="raw_text"
             placeholder="İlan metnini buraya yapıştırın"
-            rows={20}
             value={formData.raw_text}
             onChange={(e) => handleChange('raw_text', e.target.value)}
-            className="font-mono text-sm"
+            className="font-mono text-sm h-[400px] resize-none"
           />
         </div>
 
@@ -178,8 +177,8 @@ export function JobForm({ posting, mode = 'create' }) {
               ? 'Güncelleniyor...'
               : 'Kaydediliyor...'
             : isEdit
-              ? 'Güncelle'
-              : 'Kaydet'}
+            ? 'Güncelle'
+            : 'Kaydet'}
         </Button>
       </form>
 
@@ -208,4 +207,3 @@ export function JobForm({ posting, mode = 'create' }) {
     </>
   );
 }
-
