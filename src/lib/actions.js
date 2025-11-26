@@ -10,6 +10,7 @@ export async function getJobPostings() {
   const { data, error } = await supabase
     .from('job_postings')
     .select('*')
+    .eq('is_deleted', false)
     .order('scraped_at', { ascending: false });
 
   if (error) throw new Error(error.message);
@@ -21,6 +22,7 @@ export async function getJobPosting(id) {
     .from('job_postings')
     .select('*')
     .eq('id', id)
+    .eq('is_deleted', false)
     .single();
 
   if (error) throw new Error(error.message);
@@ -55,7 +57,8 @@ export async function updateJobPosting(id, formData) {
   const { error } = await supabase
     .from('job_postings')
     .update(updateData)
-    .eq('id', id);
+    .eq('id', id)
+    .eq('is_deleted', false);
 
   if (error) throw new Error(error.message);
 
@@ -66,7 +69,10 @@ export async function updateJobPosting(id, formData) {
 }
 
 export async function deleteJobPosting(id) {
-  const { error } = await supabase.from('job_postings').delete().eq('id', id);
+  const { error } = await supabase
+    .from('job_postings')
+    .update({ is_deleted: true })
+    .eq('id', id);
 
   if (error) throw new Error(error.message);
 
@@ -83,15 +89,20 @@ export async function getLLMStatus() {
     { count: totalPending },
     { data: lastRun },
   ] = await Promise.all([
-    supabase.from('job_postings').select('*', { count: 'exact', head: true }),
     supabase
       .from('job_postings')
       .select('*', { count: 'exact', head: true })
-      .eq('llm_processed', true),
+      .eq('is_deleted', false),
     supabase
       .from('job_postings')
       .select('*', { count: 'exact', head: true })
-      .eq('llm_processed', false),
+      .eq('llm_processed', true)
+      .eq('is_deleted', false),
+    supabase
+      .from('job_postings')
+      .select('*', { count: 'exact', head: true })
+      .eq('llm_processed', false)
+      .eq('is_deleted', false),
     supabase
       .from('llm_runs')
       .select('*')
@@ -140,6 +151,7 @@ export async function resetLLMProcessing() {
       llm_notes: null,
     })
     .neq('id', '00000000-0000-0000-0000-000000000000')
+    .eq('is_deleted', false)
     .select('id');
 
   if (error) throw new Error(error.message);
