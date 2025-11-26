@@ -86,7 +86,7 @@ export default async function ViewJobPage({ params }) {
     <main className="container mx-auto max-w-4xl sm:">
       <h1 className="mb-4 text-3xl font-bold tracking-tight">İlan Görüntüle</h1>
       <Card className="mb-6">
-        <CardContent className="pt-6">
+        <CardContent>
           <div className="mb-4 flex items-start justify-between">
             <h1 className="text-2xl font-bold">
               <span className="text-muted-foreground">Platform:</span>{' '}
@@ -96,8 +96,8 @@ export default async function ViewJobPage({ params }) {
               variant={posting.llm_processed ? 'default' : 'secondary'}
               className={
                 posting.llm_processed
-                  ? 'bg-green-600 hover:bg-green-600'
-                  : 'bg-yellow-600 hover:bg-yellow-600'
+                  ? 'bg-green-600 hover:bg-green-600 px-4'
+                  : 'bg-yellow-600 hover:bg-yellow-600 px-4'
               }
             >
               {posting.llm_processed ? 'İşlendi' : 'Bekliyor'}

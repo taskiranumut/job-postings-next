@@ -138,7 +138,7 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
       {status && (
         <div className="mb-8 grid gap-4 sm:grid-cols-3">
           <Card>
-            <CardContent className="pt-6">
+            <CardContent>
               <p className="text-base font-semibold uppercase text-muted-foreground">
                 Toplam İlan
               </p>
@@ -146,7 +146,7 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="pt-6">
+            <CardContent>
               <p className="text-base font-semibold uppercase text-muted-foreground">
                 İşlenen
               </p>
@@ -156,7 +156,7 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="pt-6">
+            <CardContent>
               <p className="text-base font-semibold uppercase text-muted-foreground">
                 Bekleyen
               </p>
@@ -171,7 +171,7 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
       {/* Last Run Info */}
       {status?.last_run && (
         <Card className="mb-8">
-          <CardContent className="flex flex-wrap items-center gap-2 pt-6 text-base">
+          <CardContent className="flex flex-wrap items-center gap-2 text-base">
             <span className="font-semibold">Son Çalışma:</span>
             <span>{formatDate(status.last_run.started_at)}</span>
             <span className="text-muted-foreground">-</span>

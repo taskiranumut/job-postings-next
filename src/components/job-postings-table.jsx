@@ -152,7 +152,7 @@ export function JobPostingsTable({ postings: initialPostings }) {
                             : ''
                         }
                       >
-                        <Eye className="size-4 text-green-500" />
+                        <Eye className="size-4" />
                       </Link>
                     </Button>
                     <Button
@@ -221,7 +221,7 @@ export function JobPostingsTable({ postings: initialPostings }) {
                   </span>
                 </div>
                 <div className="pt-2">
-                  <p className="line-clamp-3 text-xs text-muted-foreground">
+                  <p className="line-clamp-2 text-xs text-muted-foreground">
                     {posting.raw_text}
                   </p>
                 </div>
