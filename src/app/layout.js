@@ -2,9 +2,21 @@ import './globals.css';
 import { Toaster } from '@/components/ui/sonner';
 import { Header } from '@/components/header';
 
+export const viewport = {
+  themeColor: '#000000',
+};
+
 export const metadata = {
   title: 'Job Postings Management',
   description: 'Job postings management panel',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Job Postings',
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export default function RootLayout({ children }) {
