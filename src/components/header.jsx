@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { PlusCircle, LayoutDashboard, Home } from 'lucide-react';
+import { PlusCircle, LayoutDashboard, ClipboardList } from 'lucide-react';
 
 export function Header() {
   return (
@@ -24,30 +24,32 @@ export function Header() {
             <span className="hidden sm:inline-block">
               Job Postings Management
             </span>
+            <span className="sm:hidden">JPM</span>
           </Link>
         </div>
 
         <nav className="flex items-center gap-4 sm:gap-6">
           <Link
             href="/"
-            className="flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+            className="flex items-center gap-2 text-base font-medium text-muted-foreground transition-colors hover:text-primary"
           >
-            <Home className="h-4 w-4" />
+            <ClipboardList className="size-6 sm:size-4" />
             <span className="hidden sm:inline-block">İlanlar</span>
           </Link>
           <Link
-            href="/create"
-            className="flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
-          >
-            <PlusCircle className="h-4 w-4" />
-            <span className="hidden sm:inline-block">İlan Ekle</span>
-          </Link>
-          <Link
             href="/llm-dashboard"
-            className="flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+            className="flex items-center gap-2 text-base font-medium text-muted-foreground transition-colors hover:text-primary"
           >
-            <LayoutDashboard className="h-4 w-4" />
+            <LayoutDashboard className="size-6 sm:size-4" />
             <span className="hidden sm:inline-block">LLM Dashboard</span>
+          </Link>
+          <div className="h-8 border"></div>
+          <Link
+            href="/create"
+            className="flex items-center gap-2 text-base font-medium text-muted-foreground transition-colors hover:text-primary"
+          >
+            <PlusCircle className="size-6 sm:size-4" />
+            <span className="hidden sm:inline-block">İlan Ekle</span>
           </Link>
         </nav>
       </div>
