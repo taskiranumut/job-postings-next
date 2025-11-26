@@ -106,7 +106,7 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
 
   return (
     <>
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-3xl font-bold tracking-tight">LLM İşleme Paneli</h1>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={fetchData} disabled={isLoading}>
@@ -136,7 +136,7 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
 
       {/* Stats Cards */}
       {status && (
-        <div className="mb-8 grid gap-4 sm:grid-cols-3">
+        <div className="mb-4 grid gap-4 sm:grid-cols-3">
           <Card>
             <CardContent>
               <p className="text-base font-semibold uppercase text-muted-foreground">
@@ -170,7 +170,7 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
 
       {/* Last Run Info */}
       {status?.last_run && (
-        <Card className="mb-8">
+        <Card className="mb-4">
           <CardContent className="flex flex-wrap items-center gap-2 text-base">
             <span className="font-semibold">Son Çalışma:</span>
             <span>{formatDate(status.last_run.started_at)}</span>
