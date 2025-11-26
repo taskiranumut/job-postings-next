@@ -8,15 +8,11 @@ export const metadata = {
 };
 
 export default async function LLMDashboardPage() {
-  const [status, logs] = await Promise.all([
-    getLLMStatus(),
-    getLLMLogs(20),
-  ]);
+  const [status, logs] = await Promise.all([getLLMStatus(), getLLMLogs(20)]);
 
   return (
-    <main className="container mx-auto max-w-7xl px-4 py-8">
+    <main className="container mx-auto max-w-8xl sm:p-4">
       <LLMDashboardClient initialStatus={status} initialLogs={logs} />
     </main>
   );
 }
-

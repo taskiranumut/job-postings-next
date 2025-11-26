@@ -154,7 +154,7 @@ export function JobForm({ posting, mode = 'create' }) {
             placeholder="İlan metnini buraya yapıştırın"
             value={formData.raw_text}
             onChange={(e) => handleChange('raw_text', e.target.value)}
-            className="font-mono text-base h-[400px] resize-none"
+            className="text-base h-[400px] resize-none"
           />
         </div>
 

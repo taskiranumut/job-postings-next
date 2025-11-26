@@ -21,8 +21,8 @@ export default async function EditJobPostingPage({ params }) {
   }
 
   return (
-    <main className="container mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-8 text-3xl font-bold tracking-tight">İlan Düzenle</h1>
+    <main className="container mx-auto max-w-4xl sm:p-4">
+      <h1 className="mb-4 text-3xl font-bold tracking-tight">İlan Düzenle</h1>
       <JobForm posting={posting} mode="edit" />
     </main>
   );

@@ -23,7 +23,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { processLLMOnce, resetLLMProcessing, getLLMStatus, getLLMLogs } from '@/lib/actions';
+import {
+  processLLMOnce,
+  resetLLMProcessing,
+  getLLMStatus,
+  getLLMLogs,
+} from '@/lib/actions';
 import { RefreshCw, Home, Zap, RotateCcw } from 'lucide-react';
 
 export function LLMDashboardClient({ initialStatus, initialLogs }) {
@@ -31,7 +36,7 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
   const [status, setStatus] = useState(initialStatus);
   const [logs, setLogs] = useState(initialLogs);
   const [resetModalOpen, setResetModalOpen] = useState(false);
-  
+
   const [isRefreshing, startRefresh] = useTransition();
   const [isProcessing, startProcess] = useTransition();
   const [isResetting, startReset] = useTransition();
@@ -63,7 +68,9 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
           toast.info('İşlenecek bekleyen ilan bulunamadı.');
         } else {
           const processedCount = result.total_success || 0;
-          toast.success(`İşlem tamamlandı. ${processedCount} adet ilan işlendi.`);
+          toast.success(
+            `İşlem tamamlandı. ${processedCount} adet ilan işlendi.`
+          );
         }
 
         fetchData();
@@ -78,7 +85,9 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
     startReset(async () => {
       try {
         const resetData = await resetLLMProcessing();
-        toast.info(`${resetData.count} adet ilan sıfırlandı. İşlem başlıyor...`);
+        toast.info(
+          `${resetData.count} adet ilan sıfırlandı. İşlem başlıyor...`
+        );
         setResetModalOpen(false);
 
         // Process after reset
@@ -100,14 +109,10 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-3xl font-bold tracking-tight">LLM İşleme Paneli</h1>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" asChild>
-            <Link href="/">
-              <Home className="mr-2 size-4" />
-              Ana Sayfa
-            </Link>
-          </Button>
           <Button variant="outline" onClick={fetchData} disabled={isLoading}>
-            <RefreshCw className={`mr-2 size-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`size-4 ${isRefreshing ? 'animate-spin' : ''}`}
+            />
             Yenile
           </Button>
           <Button
@@ -116,14 +121,14 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
             disabled={isLoading}
             className="bg-orange-500/20 text-orange-400 hover:bg-orange-500/30"
           >
-            <RotateCcw className="mr-2 size-4" />
+            <RotateCcw className="size-4" />
             Zorla Tekrar İşle
           </Button>
           <Button
             onClick={handleProcessOnce}
             disabled={isLoading || status?.total_pending === 0}
           >
-            <Zap className="mr-2 size-4" />
+            <Zap className="size-4" />
             {isProcessing ? 'İşleniyor...' : 'Şimdi İşle (5 Adet)'}
           </Button>
         </div>
@@ -172,7 +177,9 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
             <span className="text-muted-foreground">-</span>
             <span>Durum:</span>
             <Badge
-              variant={status.last_run.status === 'completed' ? 'default' : 'secondary'}
+              variant={
+                status.last_run.status === 'completed' ? 'default' : 'secondary'
+              }
               className={
                 status.last_run.status === 'completed'
                   ? 'bg-green-600 hover:bg-green-600'
@@ -204,7 +211,10 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
           <TableBody>
             {logs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={6}
+                  className="py-8 text-center text-muted-foreground"
+                >
                   Kayıt bulunamadı.
                 </TableCell>
               </TableRow>
@@ -215,7 +225,11 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
                     {formatDate(log.created_at)}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={log.level === 'error' ? 'destructive' : 'secondary'}>
+                    <Badge
+                      variant={
+                        log.level === 'error' ? 'destructive' : 'secondary'
+                      }
+                    >
                       {log.level === 'error' ? 'Hata' : 'Bilgi'}
                     </Badge>
                   </TableCell>
@@ -226,7 +240,9 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
                     {log.message || '-'}
                   </TableCell>
                   <TableCell className="text-base">
-                    {log.duration_ms ? `${(log.duration_ms / 1000).toFixed(2)}s` : '-'}
+                    {log.duration_ms
+                      ? `${(log.duration_ms / 1000).toFixed(2)}s`
+                      : '-'}
                   </TableCell>
                   <TableCell className="text-base">
                     {log.prompt_tokens || '-'}
@@ -279,4 +295,3 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
     </>
   );
 }
-

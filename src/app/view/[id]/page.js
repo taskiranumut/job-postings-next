@@ -83,8 +83,8 @@ export default async function ViewJobPage({ params }) {
   };
 
   return (
-    <main className="container mx-auto max-w-4xl px-4 py-8">
-      {/* Header Card */}
+    <main className="container mx-auto max-w-4xl sm:">
+      <h1 className="mb-4 text-3xl font-bold tracking-tight">İlan Görüntüle</h1>
       <Card className="mb-6">
         <CardContent className="pt-6">
           <div className="mb-4 flex items-start justify-between">
@@ -186,7 +186,10 @@ export default async function ViewJobPage({ params }) {
               label="Sorumluluklar"
               value={posting.responsibilities_text}
             />
-            <TextBlock label="Gereksinimler" value={posting.requirements_text} />
+            <TextBlock
+              label="Gereksinimler"
+              value={posting.requirements_text}
+            />
             <TextBlock label="Nice to Have" value={posting.nice_to_have_text} />
           </AccordionContent>
         </AccordionItem>
@@ -206,7 +209,11 @@ export default async function ViewJobPage({ params }) {
               label="Maaş Aralığı"
               value={
                 posting.salary_min || posting.salary_max
-                  ? `${posting.salary_min || '?'} - ${posting.salary_max || '?'} ${posting.salary_currency || ''} / ${posting.salary_period || ''}`
+                  ? `${posting.salary_min || '?'} - ${
+                      posting.salary_max || '?'
+                    } ${posting.salary_currency || ''} / ${
+                      posting.salary_period || ''
+                    }`
                   : '-'
               }
             />
@@ -264,7 +271,10 @@ export default async function ViewJobPage({ params }) {
             </div>
           </AccordionTrigger>
           <AccordionContent className="space-y-4 pb-4 pt-2">
-            <InfoRow label="Model Versiyonu" value={posting.llm_model_version} />
+            <InfoRow
+              label="Model Versiyonu"
+              value={posting.llm_model_version}
+            />
             <TextBlock label="LLM Notları" value={posting.llm_notes} />
           </AccordionContent>
         </AccordionItem>
@@ -280,13 +290,12 @@ export default async function ViewJobPage({ params }) {
             </div>
           </AccordionTrigger>
           <AccordionContent className="pb-4 pt-2">
-            <pre className="max-h-[400px] overflow-auto whitespace-pre-wrap rounded-lg bg-muted p-4 font-mono text-base">
+            <div className="max-h-[400px] overflow-auto whitespace-pre-wrap rounded-lg bg-muted p-4 text-base">
               {posting.raw_text}
-            </pre>
+            </div>
           </AccordionContent>
         </AccordionItem>
       </Accordion>
     </main>
   );
 }
-
