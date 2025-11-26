@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "process-pending": "curl -X POST http://localhost:3000/api/llm/process-once -H 'Content-Type: application/json' -d '{\"limit\": 5}'"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
