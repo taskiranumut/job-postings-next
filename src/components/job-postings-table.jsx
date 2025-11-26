@@ -81,7 +81,7 @@ export function JobPostingsTable({ postings: initialPostings }) {
           <TableBody>
             {postings.map((posting) => (
               <TableRow key={posting.id}>
-                <TableCell className="text-sm text-muted-foreground">
+                <TableCell className="text-base text-muted-foreground">
                   {posting.scraped_at
                     ? dayjs(posting.scraped_at).format('DD/MM/YY HH:mm')
                     : '-'}
@@ -98,7 +98,7 @@ export function JobPostingsTable({ postings: initialPostings }) {
                     href={posting.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                    className="inline-flex items-center gap-1 text-base text-muted-foreground hover:text-foreground"
                     title={posting.url}
                   >
                     <Badge variant="secondary">{posting.platform_name}</Badge>
@@ -106,7 +106,7 @@ export function JobPostingsTable({ postings: initialPostings }) {
                   </a>
                 </TableCell>
                 <TableCell>
-                  <p className="max-w-[300px] truncate text-sm">
+                  <p className="max-w-[300px] truncate text-base">
                     {posting.raw_text}
                   </p>
                 </TableCell>

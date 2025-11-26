@@ -16,13 +16,13 @@ export default async function HomePage() {
         <div className="flex items-center gap-3">
           <Button variant="outline" asChild>
             <Link href="/llm-dashboard">
-              <Bot className="mr-2 size-4" />
+              <Bot className="size-4" />
               LLM Dashboard
             </Link>
           </Button>
           <Button asChild>
             <Link href="/create" target="_blank">
-              <Plus className="mr-2 size-4" />
+              <Plus className="size-4" />
               Yeni İlan Ekle
             </Link>
           </Button>

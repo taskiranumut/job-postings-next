@@ -37,7 +37,7 @@ function TextBlock({ label, value }) {
   return (
     <div>
       <p className="mb-2 font-semibold text-muted-foreground">{label}:</p>
-      <p className="whitespace-pre-wrap text-sm">{value || '-'}</p>
+      <p className="whitespace-pre-wrap text-base">{value || '-'}</p>
     </div>
   );
 }
@@ -114,7 +114,7 @@ export default async function ViewJobPage({ params }) {
             <span className="truncate">{posting.url}</span>
           </a>
 
-          <div className="space-y-2 text-sm">
+          <div className="space-y-2 text-base">
             <InfoRow
               label="İlan Eklenme Tarihi"
               value={
@@ -280,7 +280,7 @@ export default async function ViewJobPage({ params }) {
             </div>
           </AccordionTrigger>
           <AccordionContent className="pb-4 pt-2">
-            <pre className="max-h-[400px] overflow-auto whitespace-pre-wrap rounded-lg bg-muted p-4 font-mono text-sm">
+            <pre className="max-h-[400px] overflow-auto whitespace-pre-wrap rounded-lg bg-muted p-4 font-mono text-base">
               {posting.raw_text}
             </pre>
           </AccordionContent>

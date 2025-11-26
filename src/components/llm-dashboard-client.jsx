@@ -134,7 +134,7 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
         <div className="mb-8 grid gap-4 sm:grid-cols-3">
           <Card>
             <CardContent className="pt-6">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">
+              <p className="text-base font-semibold uppercase text-muted-foreground">
                 Toplam İlan
               </p>
               <p className="mt-1 text-3xl font-bold">{status.total_postings}</p>
@@ -142,7 +142,7 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">
+              <p className="text-base font-semibold uppercase text-muted-foreground">
                 İşlenen
               </p>
               <p className="mt-1 text-3xl font-bold text-green-500">
@@ -152,7 +152,7 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">
+              <p className="text-base font-semibold uppercase text-muted-foreground">
                 Bekleyen
               </p>
               <p className="mt-1 text-3xl font-bold text-orange-500">
@@ -166,7 +166,7 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
       {/* Last Run Info */}
       {status?.last_run && (
         <Card className="mb-8">
-          <CardContent className="flex flex-wrap items-center gap-2 pt-6 text-sm">
+          <CardContent className="flex flex-wrap items-center gap-2 pt-6 text-base">
             <span className="font-semibold">Son Çalışma:</span>
             <span>{formatDate(status.last_run.started_at)}</span>
             <span className="text-muted-foreground">-</span>
@@ -211,7 +211,7 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
             ) : (
               logs.map((log) => (
                 <TableRow key={log.id}>
-                  <TableCell className="text-sm">
+                  <TableCell className="text-base">
                     {formatDate(log.created_at)}
                   </TableCell>
                   <TableCell>
@@ -220,18 +220,18 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
                     </Badge>
                   </TableCell>
                   <TableCell
-                    className="max-w-[300px] truncate text-sm"
+                    className="max-w-[300px] truncate text-base"
                     title={log.message}
                   >
                     {log.message || '-'}
                   </TableCell>
-                  <TableCell className="text-sm">
+                  <TableCell className="text-base">
                     {log.duration_ms ? `${(log.duration_ms / 1000).toFixed(2)}s` : '-'}
                   </TableCell>
-                  <TableCell className="text-sm">
+                  <TableCell className="text-base">
                     {log.prompt_tokens || '-'}
                   </TableCell>
-                  <TableCell className="text-sm">
+                  <TableCell className="text-base">
                     {log.completion_tokens || '-'}
                   </TableCell>
                 </TableRow>
