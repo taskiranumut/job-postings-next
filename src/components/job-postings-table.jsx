@@ -33,6 +33,21 @@ import { toast } from 'sonner';
 import { deleteJobPosting } from '@/lib/actions';
 import dayjs from 'dayjs';
 
+function PlatformLink({ url, platformName, className, badgeClassName }) {
+  return (
+    <a
+      href={url}
+      className={`inline-flex items-center gap-1 hover:underline ${className}`}
+      title={url}
+    >
+      <Badge variant="secondary" className={badgeClassName}>
+        {platformName}
+      </Badge>
+      <ExternalLink className="size-3 shrink-0" />
+    </a>
+  );
+}
+
 export function JobPostingsTable({ postings: initialPostings }) {
   const [postings, setPostings] = useState(initialPostings);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -103,16 +118,11 @@ export function JobPostingsTable({ postings: initialPostings }) {
                   )}
                 </TableCell>
                 <TableCell>
-                  <a
-                    href={posting.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-base text-muted-foreground hover:text-foreground"
-                    title={posting.url}
-                  >
-                    <Badge variant="secondary">{posting.platform_name}</Badge>
-                    <ExternalLink className="size-3 shrink-0" />
-                  </a>
+                  <PlatformLink
+                    url={posting.url}
+                    platformName={posting.platform_name}
+                    className="text-base text-muted-foreground hover:text-foreground"
+                  />
                 </TableCell>
                 <TableCell>
                   <p className="max-w-[300px] truncate text-base">
@@ -136,7 +146,6 @@ export function JobPostingsTable({ postings: initialPostings }) {
                     >
                       <Link
                         href={`/view/${posting.id}`}
-                        target="_blank"
                         className={
                           !posting.llm_processed
                             ? 'pointer-events-none opacity-50'
@@ -152,7 +161,7 @@ export function JobPostingsTable({ postings: initialPostings }) {
                       asChild
                       title="Düzenle"
                     >
-                      <Link href={`/edit/${posting.id}`} target="_blank">
+                      <Link href={`/edit/${posting.id}`}>
                         <Pencil className="size-4" />
                       </Link>
                     </Button>
@@ -197,15 +206,11 @@ export function JobPostingsTable({ postings: initialPostings }) {
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Platform:</span>
-                  <a
-                    href={posting.url}
-                    className="inline-flex items-center gap-1 hover:underline"
-                  >
-                    <Badge variant="secondary" className="text-xs">
-                      {posting.platform_name}
-                    </Badge>
-                    <ExternalLink className="size-3" />
-                  </a>
+                  <PlatformLink
+                    url={posting.url}
+                    platformName={posting.platform_name}
+                    badgeClassName="text-xs"
+                  />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Tarih:</span>

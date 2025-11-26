@@ -106,8 +106,6 @@ export default async function ViewJobPage({ params }) {
 
           <a
             href={posting.url}
-            target="_blank"
-            rel="noopener noreferrer"
             className="mb-4 flex max-w-[50%] items-center gap-1 truncate text-primary hover:underline"
           >
             <ExternalLink className="size-4 shrink-0" />
