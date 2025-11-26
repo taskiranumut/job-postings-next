@@ -121,7 +121,7 @@ export function JobPostingsTable({ postings: initialPostings }) {
                   <PlatformLink
                     url={posting.url}
                     platformName={posting.platform_name}
-                    className="text-base text-muted-foreground hover:text-foreground"
+                    className="text-base px-4 text-muted-foreground hover:text-foreground"
                   />
                 </TableCell>
                 <TableCell>
@@ -209,7 +209,7 @@ export function JobPostingsTable({ postings: initialPostings }) {
                   <PlatformLink
                     url={posting.url}
                     platformName={posting.platform_name}
-                    badgeClassName="text-xs"
+                    badgeClassName="text-sm px-4"
                   />
                 </div>
                 <div className="flex items-center justify-between">
