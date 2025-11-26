@@ -1,0 +1,30 @@
+import { notFound } from 'next/navigation';
+import { JobForm } from '@/components/job-form';
+import { getJobPosting } from '@/lib/actions';
+
+export const metadata = {
+  title: 'İlan Düzenle | Job Postings',
+};
+
+export default async function EditJobPostingPage({ params }) {
+  const { id } = await params;
+
+  let posting;
+  try {
+    posting = await getJobPosting(id);
+  } catch {
+    notFound();
+  }
+
+  if (!posting) {
+    notFound();
+  }
+
+  return (
+    <main className="container mx-auto max-w-2xl px-4 py-8">
+      <h1 className="mb-8 text-3xl font-bold tracking-tight">İlan Düzenle</h1>
+      <JobForm posting={posting} mode="edit" />
+    </main>
+  );
+}
+
