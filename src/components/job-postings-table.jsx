@@ -10,6 +10,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -65,7 +73,8 @@ export function JobPostingsTable({ postings: initialPostings }) {
 
   return (
     <>
-      <div className="rounded-lg border">
+      {/* Desktop View */}
+      <div className="hidden rounded-lg border md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -161,6 +170,92 @@ export function JobPostingsTable({ postings: initialPostings }) {
             ))}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Mobile View */}
+      <div className="grid grid-cols-1 gap-4 md:hidden">
+        {postings.map((posting) => (
+          <Card key={posting.id}>
+            <CardHeader className="pb-2">
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <CardTitle className="text-base">
+                    {posting.job_title || 'Başlıksız İlan'}
+                  </CardTitle>
+                  <CardDescription>
+                    {posting.company_name || 'Şirket Belirtilmemiş'}
+                  </CardDescription>
+                </div>
+                {posting.llm_processed ? (
+                  <Bot className="size-5 text-green-500" />
+                ) : (
+                  <Bot className="size-5 text-muted-foreground/40" />
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="pb-2">
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Platform:</span>
+                  <a
+                    href={posting.url}
+                    className="inline-flex items-center gap-1 hover:underline"
+                  >
+                    <Badge variant="secondary" className="text-xs">
+                      {posting.platform_name}
+                    </Badge>
+                    <ExternalLink className="size-3" />
+                  </a>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Tarih:</span>
+                  <span>
+                    {posting.scraped_at
+                      ? dayjs(posting.scraped_at).format('DD/MM/YY HH:mm')
+                      : '-'}
+                  </span>
+                </div>
+                <div className="pt-2">
+                  <p className="line-clamp-3 text-xs text-muted-foreground">
+                    {posting.raw_text}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                asChild
+                disabled={!posting.llm_processed}
+              >
+                <Link
+                  href={`/view/${posting.id}`}
+                  className={
+                    !posting.llm_processed
+                      ? 'pointer-events-none opacity-50'
+                      : ''
+                  }
+                >
+                  <Eye className="mr-2 size-4" />
+                  Görüntüle
+                </Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href={`/edit/${posting.id}`}>
+                  <Pencil className="mr-2 size-4" />
+                  Düzenle
+                </Link>
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => openDeleteModal(posting.id)}
+              >
+                <Trash2 className="mr-2 size-4" />
+                Sil
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
       </div>
 
       <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
