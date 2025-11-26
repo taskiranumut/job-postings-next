@@ -227,7 +227,7 @@ export function JobPostingsTable({ postings: initialPostings }) {
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="justify-end gap-2 pt-2">
+            <CardFooter className="flex-wrap justify-start gap-2 pt-2">
               <Button
                 variant="outline"
                 asChild
@@ -241,13 +241,13 @@ export function JobPostingsTable({ postings: initialPostings }) {
                       : ''
                   }
                 >
-                  <Eye className="mr-2 size-4" />
+                  <Eye className="size-4" />
                   Görüntüle
                 </Link>
               </Button>
               <Button variant="outline" asChild>
                 <Link href={`/edit/${posting.id}`}>
-                  <Pencil className="mr-2 size-4" />
+                  <Pencil className="size-4" />
                   Düzenle
                 </Link>
               </Button>
@@ -255,7 +255,7 @@ export function JobPostingsTable({ postings: initialPostings }) {
                 variant="destructive"
                 onClick={() => openDeleteModal(posting.id)}
               >
-                <Trash2 className="mr-2 size-4" />
+                <Trash2 className="size-4" />
                 Sil
               </Button>
             </CardFooter>
