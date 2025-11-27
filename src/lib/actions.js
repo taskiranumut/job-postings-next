@@ -88,11 +88,10 @@ export async function deleteJobPosting(id) {
   }
 
   // 2. Kaydı deleted_job_postings tablosuna taşı
-  const { is_deleted, ...jobData } = jobToDelete; // is_deleted alanını çıkar
   const { error: insertError } = await supabase
     .from('deleted_job_postings')
     .insert({
-      ...jobData,
+      ...jobToDelete,
       deleted_at: new Date().toISOString(),
     });
 
