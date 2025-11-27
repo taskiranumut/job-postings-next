@@ -316,16 +316,23 @@ function scrapeLinkedInJobPage() {
     raw_text: null,
   };
 
+  // JPM toast'ı varsa kaldır (scraping'den önce temizlik)
+  const existingToast = document.getElementById('jpm-toast');
+  if (existingToast) {
+    existingToast.remove();
+  }
+
   // ---- Job Title ----
   const titleSelectors = [
+    '.job-details-jobs-unified-top-card__job-title h1.t-24.t-bold',
     'h1.t-24.t-bold.inline',
+    '.t-24.job-details-jobs-unified-top-card__job-title h1',
     'h1.job-details-jobs-unified-top-card__job-title',
     'h1.topcard__title',
     'h1.jobs-unified-top-card__job-title',
     '.job-details-jobs-unified-top-card__job-title h1',
     'h1[data-test-job-title]',
     '.jobs-details__main-content h1',
-    'h1',
   ];
 
   for (const selector of titleSelectors) {
@@ -357,8 +364,11 @@ function scrapeLinkedInJobPage() {
   }
 
   // ---- Location ----
+  // LinkedIn'de location genelde tertiary-description-container içindeki ilk .tvm__text--low-emphasis span'da
   const locationSelectors = [
-    '.job-details-jobs-unified-top-card__primary-description-container .tvm__text',
+    '.job-details-jobs-unified-top-card__tertiary-description-container .tvm__text--low-emphasis:first-of-type',
+    '.job-details-jobs-unified-top-card__tertiary-description-container > span > .tvm__text:first-child',
+    '.job-details-jobs-unified-top-card__primary-description-container .tvm__text:first-of-type',
     '.job-details-jobs-unified-top-card__bullet',
     '.topcard__flavor--bullet',
     '.jobs-unified-top-card__bullet',
@@ -369,8 +379,12 @@ function scrapeLinkedInJobPage() {
   for (const selector of locationSelectors) {
     const el = document.querySelector(selector);
     if (el && el.textContent.trim()) {
-      data.location_text = el.textContent.trim().replace(/\s+/g, ' ');
-      break;
+      const text = el.textContent.trim().replace(/\s+/g, ' ');
+      // "· " ile başlamıyorsa ve anlamlı bir lokasyon ise al
+      if (text && !text.startsWith('·') && text.length > 2) {
+        data.location_text = text;
+        break;
+      }
     }
   }
 
@@ -389,8 +403,10 @@ function scrapeLinkedInJobPage() {
         // strong içindeki text'i al, ikon ve gizli metinleri temizle
         const strongEl = btn.querySelector('strong');
         if (strongEl) {
-          // innerText ile sadece görünür metni al
+          // innerText ile sadece görünür metni al, ikon karakterlerini temizle
           let text = strongEl.innerText.trim().replace(/\s+/g, ' ');
+          // Check mark ve benzeri karakterleri temizle
+          text = text.replace(/^[\s✓✔]+/, '').trim();
           if (text && text.length > 0) {
             data.job_badges.push(text);
           }
@@ -402,10 +418,10 @@ function scrapeLinkedInJobPage() {
 
   // ---- Raw Text (Job Description) ----
   const descriptionSelectors = [
+    '#job-details',
+    '.jobs-box__html-content',
     '.jobs-description__content',
     '.jobs-description-content__text',
-    '.jobs-box__html-content',
-    '#job-details',
     '.description__text',
     '.show-more-less-html__markup',
     '.jobs-description',
@@ -420,13 +436,14 @@ function scrapeLinkedInJobPage() {
     }
   }
 
-  // Fallback
+  // Fallback - sadece job-details main content'ten al, tüm body'den değil
   if (!data.raw_text) {
-    const mainContent = document.querySelector('.jobs-details__main-content');
+    const mainContent =
+      document.querySelector('.jobs-details__main-content') ||
+      document.querySelector('.scaffold-layout__detail') ||
+      document.querySelector('main');
     if (mainContent) {
-      data.raw_text = mainContent.innerText.trim();
-    } else {
-      data.raw_text = document.body.innerText.substring(0, 50000);
+      data.raw_text = mainContent.innerText.trim().substring(0, 50000);
     }
   }
 
@@ -448,11 +465,8 @@ async function handleActionClick(tab) {
     return;
   }
 
-  // Show loading state
-  await showLoading(tab.id);
-
   try {
-    // 2. Execute the scraping function in the page context
+    // 2. ÖNCE scraping yap (loading toast'tan ÖNCE - toast içeriği raw_text'e dahil olmasın)
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: scrapeLinkedInJobPage,
@@ -465,11 +479,25 @@ async function handleActionClick(tab) {
 
     const scrapedData = results[0].result;
 
+    // Debug: Scrape edilen veriyi logla
+    console.log('JPM Scraped Data:', scrapedData);
+
     // 3. Validate minimum required data
     if (!scrapedData.raw_text || scrapedData.raw_text.trim() === '') {
       await showFeedback(tab.id, 'İş ilanı içeriği bulunamadı.', true);
       return;
     }
+
+    // Çok kısa raw_text uyarısı (muhtemelen sayfa yüklenmemiş)
+    if (scrapedData.raw_text.length < 100) {
+      console.warn(
+        'JPM Warning: raw_text çok kısa, sayfa tam yüklenmemiş olabilir:',
+        scrapedData.raw_text
+      );
+    }
+
+    // ŞIMDI loading toast göster (scraping tamamlandıktan sonra)
+    await showLoading(tab.id);
 
     // 4. Send data to the backend
     const response = await fetch(CONFIG.API_URL, {
