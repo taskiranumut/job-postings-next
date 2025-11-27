@@ -179,9 +179,21 @@ export async function getAppSettings() {
 }
 
 export async function updateAutoLLMProcessing(enabled) {
+  // Önce mevcut ayar kaydının id'sini al (singleton tablo)
+  const { data: existing, error: fetchError } = await supabase
+    .from('app_settings')
+    .select('id')
+    .single();
+
+  if (fetchError || !existing) {
+    throw new Error('Settings record not found');
+  }
+
+  // Şimdi güncelle
   const { data, error } = await supabase
     .from('app_settings')
     .update({ auto_llm_processing: enabled })
+    .eq('id', existing.id)
     .select()
     .single();
 
