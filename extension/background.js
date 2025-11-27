@@ -451,6 +451,102 @@ function scrapeLinkedInJobPage() {
 }
 
 // ============================================================
+// Data Validation
+// ============================================================
+
+/**
+ * Validate scraped data to ensure we have meaningful content
+ * @param {Object} data - Scraped data object
+ * @returns {Object} { valid: boolean, message: string, reason: string }
+ */
+function validateScrapedData(data) {
+  // 1. Job title kontrolü - mutlaka olmalı
+  if (!data.job_title || data.job_title.trim() === '') {
+    return {
+      valid: false,
+      message: 'İş başlığı bulunamadı. Sayfa tam yüklendi mi?',
+      reason: 'missing_job_title',
+    };
+  }
+
+  // 2. Raw text kontrolü - boş olmamalı
+  if (!data.raw_text || data.raw_text.trim() === '') {
+    return {
+      valid: false,
+      message: 'İlan içeriği bulunamadı.',
+      reason: 'missing_raw_text',
+    };
+  }
+
+  // 3. Raw text minimum uzunluk kontrolü
+  const rawTextLength = data.raw_text.trim().length;
+  if (rawTextLength < 200) {
+    return {
+      valid: false,
+      message: 'İlan içeriği çok kısa. Sayfa tam yüklendi mi?',
+      reason: 'raw_text_too_short',
+    };
+  }
+
+  // 4. Raw text anlamlı içerik kontrolü - iş ilanına özgü kelimeler içermeli
+  const jobRelatedKeywords = [
+    'about',
+    'job',
+    'role',
+    'responsibilities',
+    'requirements',
+    'qualifications',
+    'experience',
+    'skills',
+    'apply',
+    'position',
+    'hakkında',
+    'gereksinimler',
+    'nitelikler',
+    'sorumluluklar',
+    'deneyim',
+    'work',
+    'team',
+    'company',
+  ];
+
+  const rawTextLower = data.raw_text.toLowerCase();
+  const hasJobContent = jobRelatedKeywords.some((keyword) =>
+    rawTextLower.includes(keyword)
+  );
+
+  if (!hasJobContent) {
+    return {
+      valid: false,
+      message: 'Geçerli iş ilanı içeriği bulunamadı. Sayfa tam yüklendi mi?',
+      reason: 'no_job_content',
+    };
+  }
+
+  // 5. Bilinen hatalı içerik kontrolü (toast mesajları, notification sayıları vb.)
+  const invalidPatterns = [
+    /^[\d\s]*notification/i,
+    /^İlan kaydediliyor/i,
+    /^JPM/,
+    /^loading/i,
+  ];
+
+  const firstLine = data.raw_text.split('\n')[0].trim();
+  for (const pattern of invalidPatterns) {
+    if (pattern.test(firstLine)) {
+      return {
+        valid: false,
+        message:
+          'Sayfa içeriği düzgün okunamadı. Sayfayı yenileyip tekrar deneyin.',
+        reason: 'invalid_content_pattern',
+      };
+    }
+  }
+
+  return { valid: true, message: '', reason: '' };
+}
+
+// ============================================================
 // Main Action Handler
 // ============================================================
 
@@ -482,21 +578,19 @@ async function handleActionClick(tab) {
     // Debug: Scrape edilen veriyi logla
     console.log('JPM Scraped Data:', scrapedData);
 
-    // 3. Validate minimum required data
-    if (!scrapedData.raw_text || scrapedData.raw_text.trim() === '') {
-      await showFeedback(tab.id, 'İş ilanı içeriği bulunamadı.', true);
+    // 3. Validate scraped data - kritik alanlar eksikse işlemi durdur
+    const validationResult = validateScrapedData(scrapedData);
+    if (!validationResult.valid) {
+      console.error(
+        'JPM Validation Error:',
+        validationResult.reason,
+        scrapedData
+      );
+      await showFeedback(tab.id, validationResult.message, true);
       return;
     }
 
-    // Çok kısa raw_text uyarısı (muhtemelen sayfa yüklenmemiş)
-    if (scrapedData.raw_text.length < 100) {
-      console.warn(
-        'JPM Warning: raw_text çok kısa, sayfa tam yüklenmemiş olabilir:',
-        scrapedData.raw_text
-      );
-    }
-
-    // ŞIMDI loading toast göster (scraping tamamlandıktan sonra)
+    // ŞIMDI loading toast göster (validasyon geçtikten sonra)
     await showLoading(tab.id);
 
     // 4. Send data to the backend

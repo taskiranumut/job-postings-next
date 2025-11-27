@@ -2,6 +2,42 @@ import { supabase } from './supabase';
 import { llmClient } from './llmClient';
 
 /**
+ * Belirli süre bekler
+ * @param {number} ms - Milisaniye
+ */
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Retry ile job'ı çeker (race condition için)
+ * @param {string} jobId - Job UUID
+ * @param {number} maxRetries - Maksimum deneme sayısı
+ * @param {number} delayMs - Denemeler arası bekleme süresi
+ */
+async function fetchJobWithRetry(jobId, maxRetries = 3, delayMs = 500) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const { data: job, error } = await supabase
+      .from('job_postings')
+      .select('id, platform_name, url, raw_text, llm_processed')
+      .eq('id', jobId)
+      .single();
+
+    if (job) {
+      return { job, error: null };
+    }
+
+    if (attempt < maxRetries) {
+      console.log(
+        `[ProcessSingleJob] Job not found, retry ${attempt}/${maxRetries} in ${delayMs}ms...`
+      );
+      await sleep(delayMs);
+    } else {
+      return { job: null, error };
+    }
+  }
+  return { job: null, error: new Error('Max retries exceeded') };
+}
+
+/**
  * Tek bir iş ilanını LLM ile işler (asenkron, izole)
  * Extension'dan gelen kayıtlar için kullanılır
  * @param {string} jobId - İşlenecek ilanın UUID'si
@@ -12,15 +48,14 @@ export async function processSingleJob(jobId) {
   console.log(`[ProcessSingleJob] Starting for job ID: ${jobId}`);
 
   try {
-    // 1. İlgili kaydı çek
-    const { data: job, error: fetchError } = await supabase
-      .from('job_postings')
-      .select('id, platform_name, url, raw_text, llm_processed')
-      .eq('id', jobId)
-      .single();
+    // 1. İlgili kaydı çek (retry ile - race condition için)
+    const { job, error: fetchError } = await fetchJobWithRetry(jobId);
 
     if (fetchError || !job) {
-      console.error(`[ProcessSingleJob] Job not found: ${jobId}`, fetchError);
+      console.error(
+        `[ProcessSingleJob] Job not found after retries: ${jobId}`,
+        fetchError
+      );
       return {
         success: false,
         job_id: jobId,
@@ -146,10 +181,12 @@ async function isAutoProcessingEnabled() {
  * Otomatik işleme ayarına göre çalışır
  * Hata durumunda sadece loglama yapar, throw etmez
  * @param {string} jobId - İşlenecek ilanın UUID'si
+ * @param {number} initialDelayMs - İlk bekleme süresi (INSERT'in tamamlanması için)
  */
-export function triggerProcessSingleJob(jobId) {
-  // Önce ayarı kontrol et, sonra işle
-  isAutoProcessingEnabled()
+export function triggerProcessSingleJob(jobId, initialDelayMs = 300) {
+  // INSERT işleminin tamamlanması için kısa bir bekleme
+  sleep(initialDelayMs)
+    .then(() => isAutoProcessingEnabled())
     .then((enabled) => {
       if (!enabled) {
         console.log(
