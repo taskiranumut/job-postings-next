@@ -132,7 +132,7 @@ export async function POST(request) {
       llm_processed: false,
     };
 
-    console.log('insertData', insertData);
+    // console.log('insertData', insertData);
 
     const { data, error } = await supabase
       .from('job_postings')

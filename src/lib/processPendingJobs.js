@@ -86,12 +86,14 @@ export async function processPendingJobs(limit = 5) {
           details: { url: job.url },
         });
 
-        // LLM Çağrısı
+        // LLM Çağrısı (süre ölçümü ile)
+        const startTime = Date.now();
         const extraction = await llmClient.parseJobPosting({
           platform_name: job.platform_name,
           url: job.url,
           raw_text: job.raw_text,
         });
+        const durationMs = Date.now() - startTime;
 
         // DB Update (Extraction sonucu + metadata)
         console.log('---------------------------------------------------');
@@ -101,6 +103,7 @@ export async function processPendingJobs(limit = 5) {
           JSON.stringify(extraction, null, 2)
         );
         console.log(`Counter: ${counter} / ${jobsToProcess.length}`);
+        console.log(`Duration: ${durationMs}ms`);
         console.log('---------------------------------------------------');
 
         const { error: updateError } = await supabase
@@ -115,12 +118,13 @@ export async function processPendingJobs(limit = 5) {
 
         if (updateError) throw updateError;
 
-        // Log: Success
+        // Log: Success (süre bilgisi ile)
         await supabase.from('llm_logs').insert({
           run_id: runId,
           job_posting_id: job.id,
           level: 'info',
           message: 'Processed successfully',
+          duration_ms: durationMs,
         });
 
         successCount++;

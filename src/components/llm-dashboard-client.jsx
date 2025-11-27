@@ -283,16 +283,14 @@ export function LLMDashboardClient({
               <TableHead>Tarih</TableHead>
               <TableHead>Seviye</TableHead>
               <TableHead>Mesaj</TableHead>
-              <TableHead>Süre</TableHead>
-              <TableHead>Prompt T.</TableHead>
-              <TableHead>Comp. T.</TableHead>
+              <TableHead>Süre (sn)</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {logs.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={4}
                   className="py-8 text-center text-muted-foreground"
                 >
                   Kayıt bulunamadı.
@@ -319,16 +317,10 @@ export function LLMDashboardClient({
                   >
                     {log.message || '-'}
                   </TableCell>
-                  <TableCell className="text-base">
+                  <TableCell className="text-base tabular-nums">
                     {log.duration_ms
-                      ? `${(log.duration_ms / 1000).toFixed(2)}s`
+                      ? (log.duration_ms / 1000).toFixed(2)
                       : '-'}
-                  </TableCell>
-                  <TableCell className="text-base">
-                    {log.prompt_tokens || '-'}
-                  </TableCell>
-                  <TableCell className="text-base">
-                    {log.completion_tokens || '-'}
                   </TableCell>
                 </TableRow>
               ))
