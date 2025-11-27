@@ -6,6 +6,7 @@
 const CONFIG = {
   // Backend API endpoint (development)
   // API_URL: 'http://localhost:3000/api/job-postings/from-extension',
+  // Production API URL
   API_URL:
     'https://job-postings-next.vercel.app/api/job-postings/from-extension',
 
@@ -311,6 +312,7 @@ function scrapeLinkedInJobPage() {
     job_title: null,
     company_name: null,
     location_text: null,
+    job_badges: [], // Maaş, Remote, Full-time gibi badge'ler
     raw_text: null,
   };
 
@@ -369,6 +371,32 @@ function scrapeLinkedInJobPage() {
     if (el && el.textContent.trim()) {
       data.location_text = el.textContent.trim().replace(/\s+/g, ' ');
       break;
+    }
+  }
+
+  // ---- Job Badges (Salary, Remote, Full-time, etc.) ----
+  const badgeContainerSelectors = [
+    '.job-details-fit-level-preferences',
+    '.jobs-unified-top-card__job-insight',
+  ];
+
+  for (const containerSelector of badgeContainerSelectors) {
+    const container = document.querySelector(containerSelector);
+    if (container) {
+      // Her bir buton/badge'i bul
+      const buttons = container.querySelectorAll('button');
+      buttons.forEach((btn) => {
+        // strong içindeki text'i al, ikon ve gizli metinleri temizle
+        const strongEl = btn.querySelector('strong');
+        if (strongEl) {
+          // innerText ile sadece görünür metni al
+          let text = strongEl.innerText.trim().replace(/\s+/g, ' ');
+          if (text && text.length > 0) {
+            data.job_badges.push(text);
+          }
+        }
+      });
+      if (data.job_badges.length > 0) break;
     }
   }
 
