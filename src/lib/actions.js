@@ -11,7 +11,6 @@ export async function getJobPostings() {
   const { data, error } = await supabase
     .from('job_postings')
     .select('*')
-    .eq('is_deleted', false)
     .order('scraped_at', { ascending: false });
 
   if (error) throw new Error(error.message);
@@ -23,7 +22,6 @@ export async function getJobPosting(id) {
     .from('job_postings')
     .select('*')
     .eq('id', id)
-    .eq('is_deleted', false)
     .single();
 
   if (error) throw new Error(error.message);
@@ -67,8 +65,7 @@ export async function updateJobPosting(id, formData) {
   const { error } = await supabase
     .from('job_postings')
     .update(updateData)
-    .eq('id', id)
-    .eq('is_deleted', false);
+    .eq('id', id);
 
   if (error) throw new Error(error.message);
 
@@ -79,12 +76,41 @@ export async function updateJobPosting(id, formData) {
 }
 
 export async function deleteJobPosting(id) {
-  const { error } = await supabase
+  // 1. Önce silinecek kaydı al
+  const { data: jobToDelete, error: fetchError } = await supabase
     .from('job_postings')
-    .update({ is_deleted: true })
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (fetchError || !jobToDelete) {
+    throw new Error(fetchError?.message || 'Job posting not found');
+  }
+
+  // 2. Kaydı deleted_job_postings tablosuna taşı
+  const { is_deleted, ...jobData } = jobToDelete; // is_deleted alanını çıkar
+  const { error: insertError } = await supabase
+    .from('deleted_job_postings')
+    .insert({
+      ...jobData,
+      deleted_at: new Date().toISOString(),
+    });
+
+  if (insertError) {
+    throw new Error(`Failed to archive job posting: ${insertError.message}`);
+  }
+
+  // 3. Orijinal tablodan sil
+  const { error: deleteError } = await supabase
+    .from('job_postings')
+    .delete()
     .eq('id', id);
 
-  if (error) throw new Error(error.message);
+  if (deleteError) {
+    // Rollback: deleted_job_postings'den de sil
+    await supabase.from('deleted_job_postings').delete().eq('id', id);
+    throw new Error(`Failed to delete job posting: ${deleteError.message}`);
+  }
 
   revalidatePath('/');
   return { success: true };
@@ -99,20 +125,15 @@ export async function getLLMStatus() {
     { count: totalPending },
     { data: lastRun },
   ] = await Promise.all([
+    supabase.from('job_postings').select('*', { count: 'exact', head: true }),
     supabase
       .from('job_postings')
       .select('*', { count: 'exact', head: true })
-      .eq('is_deleted', false),
+      .eq('llm_processed', true),
     supabase
       .from('job_postings')
       .select('*', { count: 'exact', head: true })
-      .eq('llm_processed', true)
-      .eq('is_deleted', false),
-    supabase
-      .from('job_postings')
-      .select('*', { count: 'exact', head: true })
-      .eq('llm_processed', false)
-      .eq('is_deleted', false),
+      .eq('llm_processed', false),
     supabase
       .from('llm_runs')
       .select('*')
@@ -161,7 +182,6 @@ export async function resetLLMProcessing() {
       llm_notes: null,
     })
     .neq('id', '00000000-0000-0000-0000-000000000000')
-    .eq('is_deleted', false)
     .select('id');
 
   if (error) throw new Error(error.message);

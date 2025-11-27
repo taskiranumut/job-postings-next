@@ -14,8 +14,7 @@ export async function processPendingJobs(limit = 5) {
   const { count } = await supabase
     .from('job_postings')
     .select('*', { count: 'exact', head: true })
-    .eq('llm_processed', false)
-    .eq('is_deleted', false);
+    .eq('llm_processed', false);
 
   if (count === 0 || count === null) {
     console.log('No pending jobs found. Skipping run creation.');
@@ -57,7 +56,6 @@ export async function processPendingJobs(limit = 5) {
       .from('job_postings')
       .select('id, platform_name, url, raw_text')
       .eq('llm_processed', false)
-      .eq('is_deleted', false)
       .order('scraped_at', { ascending: true })
       .limit(limit);
 

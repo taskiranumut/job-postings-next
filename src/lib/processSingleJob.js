@@ -17,7 +17,6 @@ export async function processSingleJob(jobId) {
       .from('job_postings')
       .select('id, platform_name, url, raw_text, llm_processed')
       .eq('id', jobId)
-      .eq('is_deleted', false)
       .single();
 
     if (fetchError || !job) {

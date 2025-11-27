@@ -75,7 +75,6 @@ export async function POST(request) {
       .from('job_postings')
       .select('id')
       .eq('url', url.trim())
-      .eq('is_deleted', false)
       .single();
 
     if (existing) {
