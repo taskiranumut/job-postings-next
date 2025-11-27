@@ -196,15 +196,12 @@ export function LLMDashboardClient({
       <Card className="mb-4">
         <CardContent className="flex items-center justify-between">
           <div className="space-y-1">
-            <Label
-              htmlFor="auto-processing"
-              className="text-base font-semibold"
-            >
+            <Label className="text-base font-semibold">
               Otomatik İlan İşleme
             </Label>
             <p className="text-sm text-muted-foreground">
               {autoProcessing
-                ? 'Uzantıdan eklenen ilanlar otomatik olarak LLM ile işlenir.'
+                ? 'Eklenen ilanlar otomatik olarak LLM ile işlenir.'
                 : 'Manuel mod aktif. İlanları "Şimdi İşle" butonu ile işleyebilirsiniz.'}
             </p>
           </div>
