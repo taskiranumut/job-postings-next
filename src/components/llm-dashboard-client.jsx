@@ -22,6 +22,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import {
   processLLMOnce,
@@ -29,7 +35,7 @@ import {
   getLLMStatus,
   getLLMLogs,
 } from '@/lib/actions';
-import { RefreshCw, Home, Zap, RotateCcw } from 'lucide-react';
+import { RefreshCw, Home, Zap, RotateCcw, ChevronDown } from 'lucide-react';
 
 export function LLMDashboardClient({ initialStatus, initialLogs }) {
   const router = useRouter();
@@ -59,10 +65,10 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
     });
   };
 
-  const handleProcessOnce = () => {
+  const handleProcessOnce = (limit = 5) => {
     startProcess(async () => {
       try {
-        const result = await processLLMOnce(5);
+        const result = await processLLMOnce(limit);
 
         if (result.total_selected === 0) {
           toast.info('İşlenecek bekleyen ilan bulunamadı.');
@@ -124,13 +130,29 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
             <RotateCcw className="size-4" />
             Zorla Tekrar İşle
           </Button>
-          <Button
-            onClick={handleProcessOnce}
-            disabled={isLoading || status?.total_pending === 0}
-          >
-            <Zap className="size-4" />
-            {isProcessing ? 'İşleniyor...' : 'Şimdi İşle (5 Adet)'}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button disabled={isLoading || status?.total_pending === 0}>
+                <Zap className="size-4" />
+                {isProcessing ? 'İşleniyor...' : 'Şimdi İşle'}
+                <ChevronDown className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {[1, 5, 10, 20, 50].map((count) => (
+                <DropdownMenuItem key={count} asChild>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => handleProcessOnce(count)}
+                    disabled={isProcessing}
+                  >
+                    {count} Adet İşle
+                  </Button>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

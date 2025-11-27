@@ -75,7 +75,9 @@ export async function processPendingJobs(limit = 5) {
       .eq('id', runId);
 
     // 3. Her ilanı işle
+    let counter = 0;
     for (const job of jobsToProcess) {
+      counter++;
       try {
         // Log: Processing started
         await supabase.from('llm_logs').insert({
@@ -100,6 +102,7 @@ export async function processPendingJobs(limit = 5) {
           'LLM Extraction Result:',
           JSON.stringify(extraction, null, 2)
         );
+        console.log(`Counter: ${counter} / ${jobsToProcess.length}`);
         console.log('---------------------------------------------------');
 
         const { error: updateError } = await supabase
