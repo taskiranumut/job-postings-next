@@ -3,6 +3,7 @@
 import { supabase } from './supabase';
 import { revalidatePath } from 'next/cache';
 import { processPendingJobs } from './processPendingJobs';
+import { triggerProcessSingleJob } from './processSingleJob';
 
 // ==================== JOB POSTINGS ====================
 
@@ -30,16 +31,25 @@ export async function getJobPosting(id) {
 }
 
 export async function createJobPosting(formData) {
-  const { error } = await supabase.from('job_postings').insert({
-    platform_name: formData.platform_name,
-    raw_text: formData.raw_text,
-    url: formData.url,
-  });
+  const { data, error } = await supabase
+    .from('job_postings')
+    .insert({
+      platform_name: formData.platform_name,
+      raw_text: formData.raw_text,
+      url: formData.url,
+    })
+    .select('id')
+    .single();
 
   if (error) throw new Error(error.message);
 
+  // Asenkron olarak LLM işlemesini başlat (otomatik mod açıksa çalışır)
+  if (data?.id) {
+    triggerProcessSingleJob(data.id);
+  }
+
   revalidatePath('/');
-  return { success: true };
+  return { success: true, id: data?.id };
 }
 
 export async function updateJobPosting(id, formData) {
