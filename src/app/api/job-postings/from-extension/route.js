@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { triggerProcessSingleJob } from '@/lib/processSingleJob';
 
 const EXTENSION_SHARED_SECRET = process.env.EXTENSION_SHARED_SECRET;
 
@@ -144,6 +145,10 @@ export async function POST(request) {
       console.error('Supabase insert error:', error);
       return jsonResponse({ error: 'Database error' }, 500);
     }
+
+    // Asenkron olarak LLM işlemesini başlat (fire-and-forget)
+    // Bu işlem kullanıcı cevabını bekletmez, arka planda çalışır
+    triggerProcessSingleJob(data.id);
 
     return jsonResponse({
       success: true,
