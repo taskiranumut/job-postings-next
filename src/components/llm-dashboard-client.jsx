@@ -28,26 +28,37 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import {
   processLLMOnce,
   resetLLMProcessing,
   getLLMStatus,
   getLLMLogs,
+  updateAutoLLMProcessing,
 } from '@/lib/actions';
 import { RefreshCw, Home, Zap, RotateCcw, ChevronDown } from 'lucide-react';
 
-export function LLMDashboardClient({ initialStatus, initialLogs }) {
+export function LLMDashboardClient({
+  initialStatus,
+  initialLogs,
+  initialSettings,
+}) {
   const router = useRouter();
   const [status, setStatus] = useState(initialStatus);
   const [logs, setLogs] = useState(initialLogs);
+  const [autoProcessing, setAutoProcessing] = useState(
+    initialSettings?.auto_llm_processing ?? false
+  );
   const [resetModalOpen, setResetModalOpen] = useState(false);
 
   const [isRefreshing, startRefresh] = useTransition();
   const [isProcessing, startProcess] = useTransition();
   const [isResetting, startReset] = useTransition();
+  const [isToggling, startToggle] = useTransition();
 
-  const isLoading = isRefreshing || isProcessing || isResetting;
+  const isLoading = isRefreshing || isProcessing || isResetting || isToggling;
 
   const fetchData = () => {
     startRefresh(async () => {
@@ -105,6 +116,23 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
     });
   };
 
+  const handleToggleAutoProcessing = (checked) => {
+    startToggle(async () => {
+      try {
+        await updateAutoLLMProcessing(checked);
+        setAutoProcessing(checked);
+        toast.success(
+          checked
+            ? 'Otomatik işleme açıldı. Uzantıdan eklenen ilanlar otomatik işlenecek.'
+            : 'Otomatik işleme kapatıldı. Manuel işleme aktif.'
+        );
+      } catch (err) {
+        console.error('Toggle hatası:', err);
+        toast.error(err.message || 'Ayar güncellenirken hata oluştu.');
+      }
+    });
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleString('tr-TR');
@@ -130,31 +158,64 @@ export function LLMDashboardClient({ initialStatus, initialLogs }) {
             <RotateCcw className="size-4" />
             Zorla Tekrar İşle
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button disabled={isLoading || status?.total_pending === 0}>
-                <Zap className="size-4" />
-                {isProcessing ? 'İşleniyor...' : 'Şimdi İşle'}
-                <ChevronDown className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {[1, 5, 10, 20, 50].map((count) => (
-                <DropdownMenuItem key={count} asChild>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    onClick={() => handleProcessOnce(count)}
-                    disabled={isProcessing}
-                  >
-                    {count} Adet İşle
-                  </Button>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Otomatik işleme açıkken dropdown devre dışı */}
+          {autoProcessing ? (
+            <Button disabled className="cursor-not-allowed opacity-50">
+              <Zap className="size-4" />
+              Otomatik Mod Aktif
+            </Button>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button disabled={isLoading || status?.total_pending === 0}>
+                  <Zap className="size-4" />
+                  {isProcessing ? 'İşleniyor...' : 'Şimdi İşle'}
+                  <ChevronDown className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {[1, 5, 10, 20, 50].map((count) => (
+                  <DropdownMenuItem key={count} asChild>
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => handleProcessOnce(count)}
+                      disabled={isProcessing}
+                    >
+                      {count} Adet İşle
+                    </Button>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
+
+      {/* Auto Processing Toggle Card */}
+      <Card className="mb-4">
+        <CardContent className="flex items-center justify-between">
+          <div className="space-y-1">
+            <Label
+              htmlFor="auto-processing"
+              className="text-base font-semibold"
+            >
+              Otomatik İlan İşleme
+            </Label>
+            <p className="text-sm text-muted-foreground">
+              {autoProcessing
+                ? 'Uzantıdan eklenen ilanlar otomatik olarak LLM ile işlenir.'
+                : 'Manuel mod aktif. İlanları "Şimdi İşle" butonu ile işleyebilirsiniz.'}
+            </p>
+          </div>
+          <Switch
+            id="auto-processing"
+            checked={autoProcessing}
+            onCheckedChange={handleToggleAutoProcessing}
+            disabled={isToggling}
+          />
+        </CardContent>
+      </Card>
 
       {/* Stats Cards */}
       {status && (

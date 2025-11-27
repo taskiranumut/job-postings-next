@@ -160,3 +160,33 @@ export async function resetLLMProcessing() {
   revalidatePath('/');
   return { count: data?.length || 0 };
 }
+
+// ==================== APP SETTINGS ====================
+
+export async function getAppSettings() {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('Failed to fetch app settings:', error);
+    // Varsayılan değer döndür
+    return { auto_llm_processing: false };
+  }
+
+  return data;
+}
+
+export async function updateAutoLLMProcessing(enabled) {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .update({ auto_llm_processing: enabled })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/llm-dashboard');
+  return data;
+}

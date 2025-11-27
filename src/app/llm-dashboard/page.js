@@ -1,5 +1,5 @@
 import { LLMDashboardClient } from '@/components/llm-dashboard-client';
-import { getLLMStatus, getLLMLogs } from '@/lib/actions';
+import { getLLMStatus, getLLMLogs, getAppSettings } from '@/lib/actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,11 +8,19 @@ export const metadata = {
 };
 
 export default async function LLMDashboardPage() {
-  const [status, logs] = await Promise.all([getLLMStatus(), getLLMLogs(20)]);
+  const [status, logs, settings] = await Promise.all([
+    getLLMStatus(),
+    getLLMLogs(20),
+    getAppSettings(),
+  ]);
 
   return (
     <main className="container mx-auto max-w-8xl sm:p-4">
-      <LLMDashboardClient initialStatus={status} initialLogs={logs} />
+      <LLMDashboardClient
+        initialStatus={status}
+        initialLogs={logs}
+        initialSettings={settings}
+      />
     </main>
   );
 }

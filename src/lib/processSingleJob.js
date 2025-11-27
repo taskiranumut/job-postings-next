@@ -56,7 +56,9 @@ export async function processSingleJob(jobId) {
     });
     const durationMs = Date.now() - startTime;
 
-    console.log(`[ProcessSingleJob] LLM completed for ${jobId} in ${durationMs}ms`);
+    console.log(
+      `[ProcessSingleJob] LLM completed for ${jobId} in ${durationMs}ms`
+    );
 
     // 4. DB Update
     const { error: updateError } = await supabase
@@ -118,16 +120,51 @@ export async function processSingleJob(jobId) {
 }
 
 /**
+ * Otomatik işleme ayarını kontrol eder
+ * @returns {Promise<boolean>} Otomatik işleme açık mı?
+ */
+async function isAutoProcessingEnabled() {
+  try {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('auto_llm_processing')
+      .single();
+
+    if (error) {
+      console.error('[AutoProcessing] Failed to fetch settings:', error);
+      return false; // Hata durumunda güvenli tarafta kal
+    }
+
+    return data?.auto_llm_processing ?? false;
+  } catch (err) {
+    console.error('[AutoProcessing] Unexpected error:', err);
+    return false;
+  }
+}
+
+/**
  * Fire-and-forget wrapper - Promise'i await etmeden başlatır
+ * Otomatik işleme ayarına göre çalışır
  * Hata durumunda sadece loglama yapar, throw etmez
  * @param {string} jobId - İşlenecek ilanın UUID'si
  */
 export function triggerProcessSingleJob(jobId) {
-  // Promise'i await etmeden başlat (fire-and-forget)
-  processSingleJob(jobId)
+  // Önce ayarı kontrol et, sonra işle
+  isAutoProcessingEnabled()
+    .then((enabled) => {
+      if (!enabled) {
+        console.log(
+          `[TriggerProcess] Auto-processing disabled, skipping job: ${jobId}`
+        );
+        return { success: true, status: 'skipped_auto_disabled' };
+      }
+
+      // Otomatik işleme açıksa devam et
+      return processSingleJob(jobId);
+    })
     .then((result) => {
       if (result.success) {
-        console.log(`[TriggerProcess] Job ${jobId} processed: ${result.status}`);
+        console.log(`[TriggerProcess] Job ${jobId} result: ${result.status}`);
       } else {
         console.error(`[TriggerProcess] Job ${jobId} failed: ${result.error}`);
       }
@@ -137,4 +174,3 @@ export function triggerProcessSingleJob(jobId) {
       console.error(`[TriggerProcess] Unexpected error for job ${jobId}:`, err);
     });
 }
-
