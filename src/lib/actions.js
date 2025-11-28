@@ -35,6 +35,7 @@ export async function createJobPosting(formData) {
       platform_name: formData.platform_name,
       raw_text: formData.raw_text,
       url: formData.url,
+      llm_status: 'pending', // Otomatik işleme için gerekli
     })
     .select('id')
     .single();

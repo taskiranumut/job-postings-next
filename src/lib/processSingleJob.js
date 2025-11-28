@@ -28,7 +28,9 @@ async function fetchJobWithRetry(jobId, maxRetries = 3, delayMs = 500) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const { data: job, error } = await supabase
       .from('job_postings')
-      .select('id, platform_name, url, raw_text, llm_processed, llm_status, llm_started_at')
+      .select(
+        'id, platform_name, url, raw_text, llm_processed, llm_status, llm_started_at'
+      )
       .eq('id', jobId)
       .single();
 
@@ -90,7 +92,8 @@ export async function processSingleJob(jobId) {
     const isBeingProcessed =
       job.llm_status === LLM_STATUS.PROCESSING &&
       job.llm_started_at &&
-      new Date(job.llm_started_at).getTime() > Date.now() - PROCESSING_TIMEOUT_MS;
+      new Date(job.llm_started_at).getTime() >
+        Date.now() - PROCESSING_TIMEOUT_MS;
 
     if (isBeingProcessed) {
       console.log(
@@ -104,6 +107,7 @@ export async function processSingleJob(jobId) {
     }
 
     // 3. Atomik claim: llm_status'u 'processing' yap ve llm_started_at'ı güncelle
+    // NULL değerleri de kabul et (eski kayıtlar için)
     const { error: claimError } = await supabase
       .from('job_postings')
       .update({
@@ -111,7 +115,9 @@ export async function processSingleJob(jobId) {
         llm_started_at: now,
       })
       .eq('id', jobId)
-      .in('llm_status', [LLM_STATUS.PENDING, LLM_STATUS.FAILED]);
+      .or(
+        `llm_status.eq.${LLM_STATUS.PENDING},llm_status.eq.${LLM_STATUS.FAILED},llm_status.is.null`
+      );
 
     if (claimError) {
       console.error(

@@ -130,6 +130,7 @@ export async function POST(request) {
       url: url.trim(),
       raw_text: enrichedRawText,
       llm_processed: false,
+      llm_status: 'pending', // Otomatik işleme için gerekli
     };
 
     // console.log('insertData', insertData);

@@ -74,9 +74,6 @@ export function LLMDashboardClient({
     is_processing: false,
   });
 
-  // Batch işleme bilgisi (counter için)
-  const [batchTotal, setBatchTotal] = useState(0);
-
   const [isRefreshing, startRefresh] = useTransition();
   const [isProcessing, startProcess] = useTransition();
   const [isResetting, startReset] = useTransition();
@@ -89,26 +86,6 @@ export function LLMDashboardClient({
     try {
       const newProcessingStatus = await getProcessingStatus();
       setProcessingStatus(newProcessingStatus);
-
-      // Batch counter mantığı:
-      // - İşleme aktifse ve batchTotal === 0 ise, ilk kez yakaladık demektir
-      // - processing.length'i total olarak kaydet
-      if (
-        newProcessingStatus.is_processing &&
-        newProcessingStatus.processing.length > 0
-      ) {
-        setBatchTotal((prev) => {
-          if (prev === 0) {
-            // İlk kez işleme başladı, toplam sayıyı kaydet
-            return newProcessingStatus.processing.length;
-          }
-          return prev;
-        });
-      } else if (!newProcessingStatus.is_processing) {
-        // İşleme bitti, batch bilgisini sıfırla
-        setBatchTotal(0);
-      }
-
       return newProcessingStatus;
     } catch (err) {
       console.error('Processing status fetch error:', err);
@@ -182,9 +159,6 @@ export function LLMDashboardClient({
   const handleProcessOnce = (limit = 5) => {
     startProcess(async () => {
       try {
-        // Batch bilgisini sıfırla (polling ile yeniden hesaplanacak)
-        setBatchTotal(0);
-
         // İşleme başladığını hemen göster
         await fetchProcessingStatus();
 
@@ -199,13 +173,10 @@ export function LLMDashboardClient({
           );
         }
 
-        // Batch bilgisini sıfırla
-        setBatchTotal(0);
         fetchData();
       } catch (err) {
         console.error('Process hatası:', err);
         toast.error(err.message || 'İşlem sırasında hata oluştu.');
-        setBatchTotal(0);
         await fetchProcessingStatus();
       }
     });
@@ -344,18 +315,7 @@ export function LLMDashboardClient({
                 <Loader2 className="size-5 animate-spin text-blue-500" />
               </div>
               <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold text-blue-400">İşleniyor...</p>
-                  {batchTotal > 0 && (
-                    <Badge
-                      variant="outline"
-                      className="border-blue-500/50 text-blue-400"
-                    >
-                      {batchTotal - processingStatus.processing.length}/
-                      {batchTotal}
-                    </Badge>
-                  )}
-                </div>
+                <p className="font-semibold text-blue-400">İşleniyor...</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   İlanlar işleniyor, lütfen bekleyin...
                 </p>

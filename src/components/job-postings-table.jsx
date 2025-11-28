@@ -64,6 +64,8 @@ import {
   AlertCircle,
   CheckCircle2,
   RefreshCw,
+  Play,
+  Pause,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { deleteJobPosting } from '@/lib/actions';
@@ -328,6 +330,10 @@ export function JobPostingsTable({ postings: initialPostings }) {
   const [isPending, startTransition] = useTransition();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [isRefreshing, startRefreshTransition] = useTransition();
+  const [autoRefresh, setAutoRefresh] = useState(false);
+
+  // Polling interval (10 saniye)
+  const AUTO_REFRESH_INTERVAL = 5000;
 
   // initialPostings değiştiğinde postings state'ini güncelle
   // (router.refresh() sonrası yeni veri geldiğinde)
@@ -342,6 +348,32 @@ export function JobPostingsTable({ postings: initialPostings }) {
       toast.success('Tablo yenilendi');
     });
   }, [router]);
+
+  // Otomatik yenileme toggle
+  const toggleAutoRefresh = useCallback(() => {
+    const newValue = !autoRefresh;
+    setAutoRefresh(newValue);
+    if (newValue) {
+      toast.success(
+        `Otomatik yenileme aktif (${AUTO_REFRESH_INTERVAL / 1000} sn)`
+      );
+    } else {
+      toast.info('Otomatik yenileme durduruldu');
+    }
+  }, [autoRefresh]);
+
+  // Polling mekanizması
+  useEffect(() => {
+    if (!autoRefresh) return;
+
+    const intervalId = setInterval(() => {
+      startRefreshTransition(() => {
+        router.refresh();
+      });
+    }, AUTO_REFRESH_INTERVAL);
+
+    return () => clearInterval(intervalId);
+  }, [autoRefresh, router]);
 
   // URL'den aktif filtreleri oku
   const platformParam = searchParams.get('platform');
@@ -532,12 +564,33 @@ export function JobPostingsTable({ postings: initialPostings }) {
               variant="ghost"
               size="sm"
               onClick={handleRefresh}
-              disabled={isRefreshing}
+              disabled={isRefreshing || autoRefresh}
               title="Tabloyu yenile"
             >
               <RefreshCw
                 className={`size-4 ${isRefreshing ? 'animate-spin' : ''}`}
               />
+            </Button>
+            <Button
+              variant={autoRefresh ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={toggleAutoRefresh}
+              title={
+                autoRefresh
+                  ? 'Otomatik yenilemeyi durdur'
+                  : 'Otomatik yenilemeyi başlat'
+              }
+              className={
+                autoRefresh
+                  ? 'bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50'
+                  : ''
+              }
+            >
+              {autoRefresh ? (
+                <Pause className="size-4 text-green-600 dark:text-green-400" />
+              ) : (
+                <Play className="size-4" />
+              )}
             </Button>
           </div>
 
