@@ -144,7 +144,11 @@ export async function getLLMStatus() {
     supabase
       .from('job_postings')
       .select('*', { count: 'exact', head: true })
-      .in('llm_status', [LLM_STATUS.PENDING, LLM_STATUS.PROCESSING, LLM_STATUS.FAILED]),
+      .in('llm_status', [
+        LLM_STATUS.PENDING,
+        LLM_STATUS.PROCESSING,
+        LLM_STATUS.FAILED,
+      ]),
     // Bugünkü işlemler
     supabase
       .from('llm_logs')
@@ -268,11 +272,22 @@ export async function getProcessingStatus() {
     console.error('Failed count fetch error:', failedError);
   }
 
+  // Tüm non-completed ilanların status bilgisini döndür (postings güncellemesi için)
+  const { data: statusUpdates, error: statusError } = await supabase
+    .from('job_postings')
+    .select('id, llm_status, llm_processed')
+    .neq('llm_status', LLM_STATUS.COMPLETED);
+
+  if (statusError) {
+    console.error('Status updates fetch error:', statusError);
+  }
+
   return {
     processing: processingJobs || [],
     pending_count: pendingCount || 0,
     failed_count: failedCount || 0,
     is_processing: (processingJobs?.length || 0) > 0,
+    status_updates: statusUpdates || [],
   };
 }
 

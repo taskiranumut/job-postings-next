@@ -74,6 +74,9 @@ export function LLMDashboardClient({
     is_processing: false,
   });
 
+  // Batch işleme bilgisi (counter için)
+  const [batchTotal, setBatchTotal] = useState(0);
+
   const [isRefreshing, startRefresh] = useTransition();
   const [isProcessing, startProcess] = useTransition();
   const [isResetting, startReset] = useTransition();
@@ -86,6 +89,26 @@ export function LLMDashboardClient({
     try {
       const newProcessingStatus = await getProcessingStatus();
       setProcessingStatus(newProcessingStatus);
+
+      // Batch counter mantığı:
+      // - İşleme aktifse ve batchTotal === 0 ise, ilk kez yakaladık demektir
+      // - processing.length'i total olarak kaydet
+      if (
+        newProcessingStatus.is_processing &&
+        newProcessingStatus.processing.length > 0
+      ) {
+        setBatchTotal((prev) => {
+          if (prev === 0) {
+            // İlk kez işleme başladı, toplam sayıyı kaydet
+            return newProcessingStatus.processing.length;
+          }
+          return prev;
+        });
+      } else if (!newProcessingStatus.is_processing) {
+        // İşleme bitti, batch bilgisini sıfırla
+        setBatchTotal(0);
+      }
+
       return newProcessingStatus;
     } catch (err) {
       console.error('Processing status fetch error:', err);
@@ -159,6 +182,9 @@ export function LLMDashboardClient({
   const handleProcessOnce = (limit = 5) => {
     startProcess(async () => {
       try {
+        // Batch bilgisini sıfırla (polling ile yeniden hesaplanacak)
+        setBatchTotal(0);
+
         // İşleme başladığını hemen göster
         await fetchProcessingStatus();
 
@@ -169,14 +195,17 @@ export function LLMDashboardClient({
         } else {
           const processedCount = result.total_success || 0;
           toast.success(
-            `İşlem tamamlandı. ${processedCount} adet ilan işlendi.`
+            `İşlem tamamlandı. ${processedCount}/${result.total_selected} ilan işlendi.`
           );
         }
 
+        // Batch bilgisini sıfırla
+        setBatchTotal(0);
         fetchData();
       } catch (err) {
         console.error('Process hatası:', err);
         toast.error(err.message || 'İşlem sırasında hata oluştu.');
+        setBatchTotal(0);
         await fetchProcessingStatus();
       }
     });
@@ -251,9 +280,17 @@ export function LLMDashboardClient({
           ) : (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button disabled={isLoading || status?.total_pending === 0}>
+                <Button
+                  disabled={
+                    isLoading ||
+                    processingStatus.is_processing ||
+                    processingStatus.pending_count === 0
+                  }
+                >
                   <Zap className="size-4" />
-                  {isProcessing ? 'İşleniyor...' : 'Şimdi İşle'}
+                  {isProcessing || processingStatus.is_processing
+                    ? 'İşleniyor...'
+                    : 'Şimdi İşle'}
                   <ChevronDown className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -307,36 +344,21 @@ export function LLMDashboardClient({
                 <Loader2 className="size-5 animate-spin text-blue-500" />
               </div>
               <div className="flex-1">
-                <p className="font-semibold text-blue-400">İşleniyor...</p>
-                {processingStatus.processing.length > 0 ? (
-                  <div className="mt-1 space-y-1">
-                    {processingStatus.processing.map((job) => (
-                      <p key={job.id} className="text-sm text-muted-foreground">
-                        <span className="font-medium text-foreground">
-                          {job.job_title || job.platform_name || 'Başlıksız'}
-                        </span>
-                        {job.company_name && (
-                          <span className="text-muted-foreground">
-                            {' '}
-                            @ {job.company_name}
-                          </span>
-                        )}
-                      </p>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    İlanlar işleniyor, lütfen bekleyin...
-                  </p>
-                )}
-              </div>
-              <div className="text-right">
-                <Badge
-                  variant="secondary"
-                  className="bg-blue-500/20 text-blue-400"
-                >
-                  {processingStatus.processing.length} aktif
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-blue-400">İşleniyor...</p>
+                  {batchTotal > 0 && (
+                    <Badge
+                      variant="outline"
+                      className="border-blue-500/50 text-blue-400"
+                    >
+                      {batchTotal - processingStatus.processing.length}/
+                      {batchTotal}
+                    </Badge>
+                  )}
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  İlanlar işleniyor, lütfen bekleyin...
+                </p>
               </div>
             </div>
           </CardContent>
