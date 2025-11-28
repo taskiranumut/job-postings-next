@@ -3,7 +3,7 @@
 import { supabase } from './supabase';
 import { revalidatePath } from 'next/cache';
 import { processPendingJobs } from './processPendingJobs';
-import { triggerProcessSingleJob } from './processSingleJob';
+import { triggerProcessSingleJob, LLM_STATUS } from './processSingleJob';
 
 // ==================== JOB POSTINGS ====================
 
@@ -140,11 +140,11 @@ export async function getLLMStatus() {
     supabase
       .from('job_postings')
       .select('*', { count: 'exact', head: true })
-      .eq('llm_processed', true),
+      .eq('llm_status', LLM_STATUS.COMPLETED),
     supabase
       .from('job_postings')
       .select('*', { count: 'exact', head: true })
-      .eq('llm_processed', false),
+      .in('llm_status', [LLM_STATUS.PENDING, LLM_STATUS.PROCESSING, LLM_STATUS.FAILED]),
     // Bugünkü işlemler
     supabase
       .from('llm_logs')
@@ -218,6 +218,8 @@ export async function resetLLMProcessing() {
     .from('job_postings')
     .update({
       llm_processed: false,
+      llm_status: LLM_STATUS.PENDING,
+      llm_started_at: null,
       llm_notes: null,
     })
     .neq('id', '00000000-0000-0000-0000-000000000000')
@@ -228,6 +230,50 @@ export async function resetLLMProcessing() {
   revalidatePath('/llm-dashboard');
   revalidatePath('/');
   return { count: data?.length || 0 };
+}
+
+/**
+ * Aktif işleme durumunu döndürür (polling için)
+ * @returns {Promise<Object>} İşleme durumu
+ */
+export async function getProcessingStatus() {
+  // Şu an işlenen ilanları getir
+  const { data: processingJobs, error: processingError } = await supabase
+    .from('job_postings')
+    .select('id, job_title, company_name, platform_name, llm_started_at')
+    .eq('llm_status', LLM_STATUS.PROCESSING)
+    .order('llm_started_at', { ascending: true });
+
+  if (processingError) {
+    console.error('Processing jobs fetch error:', processingError);
+  }
+
+  // Bekleyen ilanların sayısını getir
+  const { count: pendingCount, error: pendingError } = await supabase
+    .from('job_postings')
+    .select('*', { count: 'exact', head: true })
+    .eq('llm_status', LLM_STATUS.PENDING);
+
+  if (pendingError) {
+    console.error('Pending count fetch error:', pendingError);
+  }
+
+  // Failed ilanların sayısını getir
+  const { count: failedCount, error: failedError } = await supabase
+    .from('job_postings')
+    .select('*', { count: 'exact', head: true })
+    .eq('llm_status', LLM_STATUS.FAILED);
+
+  if (failedError) {
+    console.error('Failed count fetch error:', failedError);
+  }
+
+  return {
+    processing: processingJobs || [],
+    pending_count: pendingCount || 0,
+    failed_count: failedCount || 0,
+    is_processing: (processingJobs?.length || 0) > 0,
+  };
 }
 
 // ==================== APP SETTINGS ====================

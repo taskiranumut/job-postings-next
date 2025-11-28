@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -37,8 +37,21 @@ import {
   getLLMStatus,
   getLLMLogs,
   updateAutoLLMProcessing,
+  getProcessingStatus,
 } from '@/lib/actions';
-import { RefreshCw, Home, Zap, RotateCcw, ChevronDown } from 'lucide-react';
+import {
+  RefreshCw,
+  Home,
+  Zap,
+  RotateCcw,
+  ChevronDown,
+  Loader2,
+  Clock,
+  AlertCircle,
+} from 'lucide-react';
+
+// Polling interval (ms)
+const POLLING_INTERVAL = 5000;
 
 export function LLMDashboardClient({
   initialStatus,
@@ -53,6 +66,14 @@ export function LLMDashboardClient({
   );
   const [resetModalOpen, setResetModalOpen] = useState(false);
 
+  // İşleme durumu state'leri
+  const [processingStatus, setProcessingStatus] = useState({
+    processing: [],
+    pending_count: 0,
+    failed_count: 0,
+    is_processing: false,
+  });
+
   const [isRefreshing, startRefresh] = useTransition();
   const [isProcessing, startProcess] = useTransition();
   const [isResetting, startReset] = useTransition();
@@ -60,15 +81,74 @@ export function LLMDashboardClient({
 
   const isLoading = isRefreshing || isProcessing || isResetting || isToggling;
 
-  const fetchData = () => {
-    startRefresh(async () => {
-      try {
-        const [newStatus, newLogs] = await Promise.all([
+  // İşleme durumunu getir
+  const fetchProcessingStatus = useCallback(async () => {
+    try {
+      const newProcessingStatus = await getProcessingStatus();
+      setProcessingStatus(newProcessingStatus);
+      return newProcessingStatus;
+    } catch (err) {
+      console.error('Processing status fetch error:', err);
+      return null;
+    }
+  }, []);
+
+  // İşleme durumunu takip etmek için ref
+  const wasProcessingRef = useRef(processingStatus.is_processing);
+
+  // wasProcessingRef'i güncel tut
+  useEffect(() => {
+    wasProcessingRef.current = processingStatus.is_processing;
+  }, [processingStatus.is_processing]);
+
+  // Polling: İşleme durumunu düzenli aralıklarla kontrol et
+  useEffect(() => {
+    let isMounted = true;
+
+    // İlk yükleme
+    (async () => {
+      if (isMounted) {
+        await fetchProcessingStatus();
+      }
+    })();
+
+    // Polling başlat
+    const interval = setInterval(async () => {
+      if (!isMounted) return;
+
+      const newStatus = await fetchProcessingStatus();
+
+      // Eğer işleme tamamlandıysa ana verileri de güncelle
+      if (newStatus && !newStatus.is_processing && wasProcessingRef.current) {
+        // İşleme bitti, verileri yenile
+        const [updatedStatus, updatedLogs] = await Promise.all([
           getLLMStatus(),
           getLLMLogs(20),
         ]);
+        if (isMounted) {
+          setStatus(updatedStatus);
+          setLogs(updatedLogs);
+        }
+      }
+    }, POLLING_INTERVAL);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [fetchProcessingStatus]);
+
+  const fetchData = () => {
+    startRefresh(async () => {
+      try {
+        const [newStatus, newLogs, newProcessingStatus] = await Promise.all([
+          getLLMStatus(),
+          getLLMLogs(20),
+          getProcessingStatus(),
+        ]);
         setStatus(newStatus);
         setLogs(newLogs);
+        setProcessingStatus(newProcessingStatus);
       } catch (err) {
         console.error('Veri çekme hatası:', err);
         toast.error('Veriler yüklenirken hata oluştu.');
@@ -79,6 +159,9 @@ export function LLMDashboardClient({
   const handleProcessOnce = (limit = 5) => {
     startProcess(async () => {
       try {
+        // İşleme başladığını hemen göster
+        await fetchProcessingStatus();
+
         const result = await processLLMOnce(limit);
 
         if (result.total_selected === 0) {
@@ -94,6 +177,7 @@ export function LLMDashboardClient({
       } catch (err) {
         console.error('Process hatası:', err);
         toast.error(err.message || 'İşlem sırasında hata oluştu.');
+        await fetchProcessingStatus();
       }
     });
   };
@@ -213,6 +297,92 @@ export function LLMDashboardClient({
           />
         </CardContent>
       </Card>
+
+      {/* Active Processing Status Card */}
+      {(processingStatus.is_processing || isProcessing) && (
+        <Card className="mb-4 border-blue-500/50 bg-blue-500/5">
+          <CardContent>
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-full bg-blue-500/20">
+                <Loader2 className="size-5 animate-spin text-blue-500" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-blue-400">İşleniyor...</p>
+                {processingStatus.processing.length > 0 ? (
+                  <div className="mt-1 space-y-1">
+                    {processingStatus.processing.map((job) => (
+                      <p key={job.id} className="text-sm text-muted-foreground">
+                        <span className="font-medium text-foreground">
+                          {job.job_title || job.platform_name || 'Başlıksız'}
+                        </span>
+                        {job.company_name && (
+                          <span className="text-muted-foreground">
+                            {' '}
+                            @ {job.company_name}
+                          </span>
+                        )}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    İlanlar işleniyor, lütfen bekleyin...
+                  </p>
+                )}
+              </div>
+              <div className="text-right">
+                <Badge
+                  variant="secondary"
+                  className="bg-blue-500/20 text-blue-400"
+                >
+                  {processingStatus.processing.length} aktif
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Queue Status - Pending & Failed */}
+      {(processingStatus.pending_count > 0 ||
+        processingStatus.failed_count > 0) &&
+        !processingStatus.is_processing &&
+        !isProcessing && (
+          <Card className="mb-4 border-amber-500/30 bg-amber-500/5">
+            <CardContent>
+              <div className="flex flex-wrap items-center gap-4">
+                {processingStatus.pending_count > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Clock className="size-4 text-amber-500" />
+                    <span className="text-sm">
+                      <span className="font-semibold text-amber-500">
+                        {processingStatus.pending_count}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {' '}
+                        ilan bekliyor
+                      </span>
+                    </span>
+                  </div>
+                )}
+                {processingStatus.failed_count > 0 && (
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="size-4 text-red-500" />
+                    <span className="text-sm">
+                      <span className="font-semibold text-red-500">
+                        {processingStatus.failed_count}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {' '}
+                        ilan başarısız
+                      </span>
+                    </span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       {/* Stats Cards - İlan Durumu */}
       {status && (

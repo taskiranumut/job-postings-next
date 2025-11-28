@@ -4,6 +4,14 @@ import { llmClient } from './llmClient';
 // Timeout süresi: 5 dakika (ms cinsinden)
 const PROCESSING_TIMEOUT_MS = 5 * 60 * 1000;
 
+// LLM Status enum değerleri
+export const LLM_STATUS = {
+  PENDING: 'pending',
+  PROCESSING: 'processing',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+};
+
 /**
  * Belirli süre bekler
  * @param {number} ms - Milisaniye
@@ -20,7 +28,7 @@ async function fetchJobWithRetry(jobId, maxRetries = 3, delayMs = 500) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const { data: job, error } = await supabase
       .from('job_postings')
-      .select('id, platform_name, url, raw_text, llm_processed, llm_started_at')
+      .select('id, platform_name, url, raw_text, llm_processed, llm_status, llm_started_at')
       .eq('id', jobId)
       .single();
 
@@ -49,9 +57,6 @@ async function fetchJobWithRetry(jobId, maxRetries = 3, delayMs = 500) {
 export async function processSingleJob(jobId) {
   const modelName = process.env.LLM_MODEL_NAME || 'gpt-4o-mini';
   const now = new Date().toISOString();
-  const timeoutThreshold = new Date(
-    Date.now() - PROCESSING_TIMEOUT_MS
-  ).toISOString();
 
   console.log(`[ProcessSingleJob] Starting for job ID: ${jobId}`);
 
@@ -71,8 +76,8 @@ export async function processSingleJob(jobId) {
       };
     }
 
-    // Zaten işlenmişse atla
-    if (job.llm_processed) {
+    // Zaten işlenmişse atla (llm_status kontrolü)
+    if (job.llm_status === LLM_STATUS.COMPLETED || job.llm_processed) {
       console.log(`[ProcessSingleJob] Job already processed: ${jobId}`);
       return {
         success: true,
@@ -81,11 +86,11 @@ export async function processSingleJob(jobId) {
       };
     }
 
-    // 2. Başka işlem tarafından işleniyor mu kontrol et
+    // 2. Başka işlem tarafından işleniyor mu kontrol et (llm_status + timeout)
     const isBeingProcessed =
+      job.llm_status === LLM_STATUS.PROCESSING &&
       job.llm_started_at &&
-      new Date(job.llm_started_at).getTime() >
-        Date.now() - PROCESSING_TIMEOUT_MS;
+      new Date(job.llm_started_at).getTime() > Date.now() - PROCESSING_TIMEOUT_MS;
 
     if (isBeingProcessed) {
       console.log(
@@ -98,12 +103,15 @@ export async function processSingleJob(jobId) {
       };
     }
 
-    // 3. Atomik claim: llm_started_at'ı güncelle
+    // 3. Atomik claim: llm_status'u 'processing' yap ve llm_started_at'ı güncelle
     const { error: claimError } = await supabase
       .from('job_postings')
-      .update({ llm_started_at: now })
+      .update({
+        llm_status: LLM_STATUS.PROCESSING,
+        llm_started_at: now,
+      })
       .eq('id', jobId)
-      .eq('llm_processed', false);
+      .in('llm_status', [LLM_STATUS.PENDING, LLM_STATUS.FAILED]);
 
     if (claimError) {
       console.error(
@@ -113,7 +121,7 @@ export async function processSingleJob(jobId) {
       throw new Error('Failed to claim job');
     }
 
-    // 3. LLM Çağrısı (süre ölçümü ile)
+    // 4. LLM Çağrısı (süre ölçümü ile)
     const startTime = Date.now();
     const extraction = await llmClient.parseJobPosting({
       platform_name: job.platform_name,
@@ -127,13 +135,14 @@ export async function processSingleJob(jobId) {
       `[ProcessSingleJob] Job: ${extraction.job_title} @ ${extraction.company_name}`
     );
 
-    // 4. DB Update (başarılı)
+    // 5. DB Update (başarılı) - llm_status = 'completed'
     const { error: updateError } = await supabase
       .from('job_postings')
       .update({
         ...extraction,
         llm_processed: true,
-        llm_started_at: null, // Kilidi kaldır
+        llm_status: LLM_STATUS.COMPLETED,
+        llm_started_at: null,
         llm_model_version: modelName,
         llm_notes: `Auto-processed from extension at ${new Date().toISOString()}`,
       })
@@ -143,7 +152,7 @@ export async function processSingleJob(jobId) {
       throw updateError;
     }
 
-    // 5. Log kaydı
+    // 6. Log kaydı
     await supabase.from('llm_logs').insert({
       job_posting_id: job.id,
       level: 'info',
@@ -173,10 +182,11 @@ export async function processSingleJob(jobId) {
       details: { error: err.message || String(err), trigger: 'extension' },
     });
 
-    // Kilidi kaldır ve hata notu düş
+    // llm_status'u 'failed' yap ve kilidi kaldır
     await supabase
       .from('job_postings')
       .update({
+        llm_status: LLM_STATUS.FAILED,
         llm_started_at: null,
         llm_notes: `Auto-parse failed: ${err.message}`,
       })

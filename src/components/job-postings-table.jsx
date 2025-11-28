@@ -59,11 +59,18 @@ import {
   ChevronDown,
   X,
   Search,
+  Loader2,
+  Clock,
+  AlertCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { deleteJobPosting } from '@/lib/actions';
+import { deleteJobPosting, getProcessingStatus } from '@/lib/actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import dayjs from 'dayjs';
+
+// Polling interval (ms)
+const POLLING_INTERVAL = 5000;
 
 // Array karşılaştırma helper'ı (JSON.stringify'dan daha hızlı)
 function arraysEqual(a, b) {
@@ -149,8 +156,10 @@ const MultiSelect = memo(function MultiSelect({
 });
 
 const LLM_STATUS_OPTIONS = [
-  { value: 'processed', label: 'İşlendi' },
+  { value: 'completed', label: 'Tamamlandı' },
+  { value: 'processing', label: 'İşleniyor' },
   { value: 'pending', label: 'Bekliyor' },
+  { value: 'failed', label: 'Başarısız' },
 ];
 
 // FilterBar kendi içinde local state tutar - parent'ı gereksiz render etmez
@@ -223,12 +232,19 @@ const FilterBar = memo(function FilterBar({
   );
 
   const llmStatusLabel = useCallback(
-    (s) =>
-      s.length === 2
-        ? 'Tümü'
-        : s.includes('processed')
-        ? 'İşlendi'
-        : 'Bekliyor',
+    (s) => {
+      if (s.length === 4) return 'Tümü';
+      if (s.length === 1) {
+        const statusMap = {
+          completed: 'Tamamlandı',
+          processing: 'İşleniyor',
+          pending: 'Bekliyor',
+          failed: 'Başarısız',
+        };
+        return statusMap[s[0]] || s[0];
+      }
+      return `${s.length} durum`;
+    },
     []
   );
 
@@ -316,6 +332,45 @@ export function JobPostingsTable({ postings: initialPostings }) {
   const [selectedPostingId, setSelectedPostingId] = useState(null);
   const [isPending, startTransition] = useTransition();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  
+  // İşleme durumu state'leri
+  const [processingStatus, setProcessingStatus] = useState({
+    processing: [],
+    pending_count: 0,
+    failed_count: 0,
+    is_processing: false,
+  });
+  const [processingIds, setProcessingIds] = useState(new Set());
+
+  // İşleme durumunu getir ve postings'i güncelle
+  const fetchProcessingStatus = useCallback(async () => {
+    try {
+      const newProcessingStatus = await getProcessingStatus();
+      setProcessingStatus(newProcessingStatus);
+      
+      // İşlenen ID'leri set olarak tut
+      const newProcessingIds = new Set(newProcessingStatus.processing.map(p => p.id));
+      setProcessingIds(newProcessingIds);
+      
+      return newProcessingStatus;
+    } catch (err) {
+      console.error('Processing status fetch error:', err);
+      return null;
+    }
+  }, []);
+
+  // Polling: İşleme durumunu düzenli aralıklarla kontrol et
+  useEffect(() => {
+    // İlk yükleme
+    fetchProcessingStatus();
+
+    // Polling başlat
+    const interval = setInterval(() => {
+      fetchProcessingStatus();
+    }, POLLING_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, [fetchProcessingStatus]);
 
   // URL'den aktif filtreleri oku
   const platformParam = searchParams.get('platform');
@@ -371,14 +426,10 @@ export function JobPostingsTable({ postings: initialPostings }) {
         }
       }
 
-      // LLM status filtresi
+      // LLM status filtresi (yeni llm_status alanını kullan)
       if (appliedLlmStatus.length > 0) {
-        const isProcessed = posting.llm_processed;
-        const matchesProcessed =
-          appliedLlmStatus.includes('processed') && isProcessed;
-        const matchesPending =
-          appliedLlmStatus.includes('pending') && !isProcessed;
-        if (!matchesProcessed && !matchesPending) {
+        const postingStatus = posting.llm_status || (posting.llm_processed ? 'completed' : 'pending');
+        if (!appliedLlmStatus.includes(postingStatus)) {
           return false;
         }
       }
@@ -504,6 +555,13 @@ export function JobPostingsTable({ postings: initialPostings }) {
               {filteredPostings.length !== postings.length &&
                 ` / ${postings.length}`}
             </Badge>
+            {/* Processing indicator */}
+            {processingStatus.is_processing && (
+              <Badge className="bg-blue-500/20 text-blue-400 animate-pulse">
+                <Loader2 className="mr-1 size-3 animate-spin" />
+                {processingStatus.processing.length} işleniyor
+              </Badge>
+            )}
           </div>
 
           {/* Desktop Filters */}
@@ -597,11 +655,39 @@ export function JobPostingsTable({ postings: initialPostings }) {
                       : '-'}
                   </TableCell>
                   <TableCell className="text-center">
-                    {posting.llm_processed ? (
-                      <Bot className="mx-auto size-5 text-green-500" />
-                    ) : (
-                      <Bot className="mx-auto size-5 text-muted-foreground/40" />
-                    )}
+                    {(() => {
+                      // Real-time processing durumunu kontrol et
+                      const isCurrentlyProcessing = processingIds.has(posting.id);
+                      const status = isCurrentlyProcessing ? 'processing' : (posting.llm_status || (posting.llm_processed ? 'completed' : 'pending'));
+                      
+                      switch (status) {
+                        case 'completed':
+                          return (
+                            <div className="flex items-center justify-center gap-1" title="Tamamlandı">
+                              <CheckCircle2 className="size-4 text-green-500" />
+                            </div>
+                          );
+                        case 'processing':
+                          return (
+                            <div className="flex items-center justify-center gap-1" title="İşleniyor">
+                              <Loader2 className="size-4 animate-spin text-blue-500" />
+                            </div>
+                          );
+                        case 'failed':
+                          return (
+                            <div className="flex items-center justify-center gap-1" title="Başarısız">
+                              <AlertCircle className="size-4 text-red-500" />
+                            </div>
+                          );
+                        case 'pending':
+                        default:
+                          return (
+                            <div className="flex items-center justify-center gap-1" title="Bekliyor">
+                              <Clock className="size-4 text-amber-500" />
+                            </div>
+                          );
+                      }
+                    })()}
                   </TableCell>
                   <TableCell>
                     <PlatformLink
@@ -683,11 +769,22 @@ export function JobPostingsTable({ postings: initialPostings }) {
                       {posting.company_name || 'Şirket Belirtilmemiş'}
                     </CardDescription>
                   </div>
-                  {posting.llm_processed ? (
-                    <Bot className="size-5 text-green-500" />
-                  ) : (
-                    <Bot className="size-5 text-muted-foreground/40" />
-                  )}
+                  {(() => {
+                    const isCurrentlyProcessing = processingIds.has(posting.id);
+                    const status = isCurrentlyProcessing ? 'processing' : (posting.llm_status || (posting.llm_processed ? 'completed' : 'pending'));
+                    
+                    switch (status) {
+                      case 'completed':
+                        return <CheckCircle2 className="size-5 text-green-500" title="Tamamlandı" />;
+                      case 'processing':
+                        return <Loader2 className="size-5 animate-spin text-blue-500" title="İşleniyor" />;
+                      case 'failed':
+                        return <AlertCircle className="size-5 text-red-500" title="Başarısız" />;
+                      case 'pending':
+                      default:
+                        return <Clock className="size-5 text-amber-500" title="Bekliyor" />;
+                    }
+                  })()}
                 </div>
               </CardHeader>
               <CardContent className="pb-2">
