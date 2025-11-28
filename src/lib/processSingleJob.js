@@ -210,7 +210,7 @@ export async function processSingleJob(jobId) {
  * Otomatik işleme ayarını kontrol eder
  * @returns {Promise<boolean>} Otomatik işleme açık mı?
  */
-async function isAutoProcessingEnabled() {
+export async function isAutoProcessingEnabled() {
   try {
     const { data, error } = await supabase
       .from('app_settings')

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
+import { waitUntil } from '@vercel/functions';
 import { supabase } from '@/lib/supabase';
-import { triggerProcessSingleJob } from '@/lib/processSingleJob';
+import { processSingleJob, isAutoProcessingEnabled } from '@/lib/processSingleJob';
 
 const EXTENSION_SHARED_SECRET = process.env.EXTENSION_SHARED_SECRET;
 
@@ -146,14 +147,28 @@ export async function POST(request) {
       return jsonResponse({ error: 'Database error' }, 500);
     }
 
-    // Asenkron olarak LLM işlemesini başlat (fire-and-forget)
-    // Bu işlem kullanıcı cevabını bekletmez, arka planda çalışır
-    triggerProcessSingleJob(data.id);
+    // Otomatik işleme açıksa LLM işlemesini başlat
+    const autoEnabled = await isAutoProcessingEnabled();
+    
+    if (autoEnabled) {
+      console.log(`[FromExtension] Auto-processing enabled, starting job: ${data.id}`);
+      
+      // waitUntil: Response hemen döner, işlem arka planda devam eder
+      // Bu Vercel serverless'ta background işlemlerin çalışmasını sağlar
+      waitUntil(
+        processSingleJob(data.id).catch((err) => {
+          console.error(`[FromExtension] processSingleJob error for ${data.id}:`, err);
+        })
+      );
+    } else {
+      console.log(`[FromExtension] Auto-processing disabled, skipping job: ${data.id}`);
+    }
 
     return jsonResponse({
       success: true,
       id: data.id,
       message: 'Job posting saved successfully',
+      auto_processing: autoEnabled,
     });
   } catch (error) {
     console.error('Unexpected error in from-extension route:', error);
