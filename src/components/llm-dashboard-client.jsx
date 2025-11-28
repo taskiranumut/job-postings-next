@@ -123,7 +123,7 @@ export function LLMDashboardClient({
         setAutoProcessing(checked);
         toast.success(
           checked
-            ? 'Otomatik işleme açıldı. Uzantıdan eklenen ilanlar otomatik işlenecek.'
+            ? 'Otomatik işleme açıldı. Eklenen ilanlar otomatik işlenecek.'
             : 'Otomatik işleme kapatıldı. Manuel işleme aktif.'
         );
       } catch (err) {
