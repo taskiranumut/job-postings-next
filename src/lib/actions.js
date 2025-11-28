@@ -18,6 +18,90 @@ export async function getJobPostings() {
   return data || [];
 }
 
+/**
+ * Pagination ve filtreleme destekli job postings çekme
+ * @param {Object} options - Sorgu seçenekleri
+ * @param {number} options.page - Sayfa numarası (1'den başlar)
+ * @param {number} options.pageSize - Sayfa başına kayıt (20, 50, 100)
+ * @param {string[]} options.platforms - Platform filtreleri
+ * @param {string[]} options.llmStatuses - LLM durum filtreleri
+ * @param {string} options.jobTitle - Job title arama
+ * @param {string} options.company - Şirket arama
+ */
+export async function getJobPostingsPaginated({
+  page = 1,
+  pageSize = 20,
+  platforms = [],
+  llmStatuses = [],
+  jobTitle = '',
+  company = '',
+} = {}) {
+  // Sayfa boyutu validasyonu
+  const validPageSizes = [20, 50, 100];
+  const validatedPageSize = validPageSizes.includes(pageSize) ? pageSize : 20;
+
+  // Offset hesapla
+  const offset = (page - 1) * validatedPageSize;
+
+  // Base query builder
+  let query = supabase.from('job_postings').select('*', { count: 'exact' });
+
+  // Filtreleri uygula
+  if (platforms.length > 0) {
+    query = query.in('platform_name', platforms);
+  }
+
+  if (llmStatuses.length > 0) {
+    query = query.in('llm_status', llmStatuses);
+  }
+
+  if (jobTitle.trim()) {
+    query = query.ilike('job_title', `%${jobTitle.trim()}%`);
+  }
+
+  if (company.trim()) {
+    query = query.ilike('company_name', `%${company.trim()}%`);
+  }
+
+  // Sıralama ve pagination
+  query = query
+    .order('scraped_at', { ascending: false })
+    .range(offset, offset + validatedPageSize - 1);
+
+  const { data, error, count } = await query;
+
+  if (error) throw new Error(error.message);
+
+  // Toplam sayfa sayısını hesapla
+  const totalPages = Math.ceil((count || 0) / validatedPageSize);
+
+  return {
+    data: data || [],
+    pagination: {
+      page,
+      pageSize: validatedPageSize,
+      totalCount: count || 0,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+    },
+  };
+}
+
+/**
+ * Benzersiz platformları al (filtre dropdown için)
+ */
+export async function getUniquePlatforms() {
+  const { data, error } = await supabase
+    .from('job_postings')
+    .select('platform_name')
+    .not('platform_name', 'is', null);
+
+  if (error) throw new Error(error.message);
+
+  return [...new Set(data?.map((p) => p.platform_name) || [])].sort();
+}
+
 export async function getJobPosting(id) {
   const { data, error } = await supabase
     .from('job_postings')

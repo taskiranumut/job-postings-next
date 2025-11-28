@@ -3,17 +3,42 @@ import {
   JobPostingsTable,
   JobPostingsTableSkeleton,
 } from '@/components/job-postings-table';
-import { getJobPostings } from '@/lib/actions';
+import { getJobPostingsPaginated, getUniquePlatforms } from '@/lib/actions';
 
 export const dynamic = 'force-dynamic';
 
-export default async function HomePage() {
-  const postings = await getJobPostings();
+export default async function HomePage({ searchParams }) {
+  const params = await searchParams;
+
+  // URL parametrelerini oku
+  const page = parseInt(params?.page || '1', 10);
+  const pageSize = parseInt(params?.pageSize || '20', 10);
+  const platforms = params?.platform?.split(',').filter(Boolean) || [];
+  const llmStatuses = params?.llm_status?.split(',').filter(Boolean) || [];
+  const jobTitle = params?.job_title || '';
+  const company = params?.company || '';
+
+  // Verileri çek
+  const [result, uniquePlatforms] = await Promise.all([
+    getJobPostingsPaginated({
+      page,
+      pageSize,
+      platforms,
+      llmStatuses,
+      jobTitle,
+      company,
+    }),
+    getUniquePlatforms(),
+  ]);
 
   return (
     <main className="container mx-auto max-w-8xl sm:p-4">
       <Suspense fallback={<JobPostingsTableSkeleton />}>
-        <JobPostingsTable postings={postings} />
+        <JobPostingsTable
+          initialData={result.data}
+          initialPagination={result.pagination}
+          initialPlatforms={uniquePlatforms}
+        />
       </Suspense>
     </main>
   );

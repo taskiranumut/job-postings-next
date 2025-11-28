@@ -9,7 +9,7 @@ import {
   memo,
 } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -46,6 +46,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -57,6 +64,10 @@ import {
   ExternalLink,
   Filter,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   X,
   Search,
   Loader2,
@@ -160,6 +171,12 @@ const LLM_STATUS_OPTIONS = [
   { value: 'processing', label: 'İşleniyor' },
   { value: 'pending', label: 'Bekliyor' },
   { value: 'failed', label: 'Başarısız' },
+];
+
+const PAGE_SIZE_OPTIONS = [
+  { value: 20, label: '20' },
+  { value: 50, label: '50' },
+  { value: 100, label: '100' },
 ];
 
 // FilterBar kendi içinde local state tutar - parent'ı gereksiz render etmez
@@ -320,34 +337,308 @@ const FilterBar = memo(function FilterBar({
   );
 });
 
-export function JobPostingsTable({ postings: initialPostings }) {
-  const router = useRouter();
+// Pagination Component
+const Pagination = memo(function Pagination({
+  currentPage,
+  totalPages,
+  totalCount,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+  isLoading,
+}) {
+  const startItem = (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(currentPage * pageSize, totalCount);
+
+  // Sayfa numaralarını oluştur
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      // Tüm sayfaları göster
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // İlk sayfa
+      pages.push(1);
+
+      if (currentPage > 3) {
+        pages.push('...');
+      }
+
+      // Ortadaki sayfalar
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) {
+          pages.push(i);
+        }
+      }
+
+      if (currentPage < totalPages - 2) {
+        pages.push('...');
+      }
+
+      // Son sayfa
+      if (!pages.includes(totalPages)) {
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
+  };
+
+  if (totalPages <= 1 && totalCount <= 20) {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* Sol taraf - Bilgi ve sayfa boyutu */}
+      <div className="flex flex-wrap items-center gap-4">
+        <span className="text-sm text-muted-foreground">
+          {totalCount > 0 ? (
+            <>
+              <span className="font-medium">
+                {startItem}-{endItem}
+              </span>
+              {' / '}
+              <span className="font-medium">{totalCount}</span> kayıt
+            </>
+          ) : (
+            'Kayıt bulunamadı'
+          )}
+        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Sayfa başına:</span>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(value) => onPageSizeChange(Number(value))}
+            disabled={isLoading}
+          >
+            <SelectTrigger className="h-8 w-[80px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={String(option.value)}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Sağ taraf - Sayfa navigasyonu */}
+      {totalPages > 1 && (
+        <div className="flex items-center gap-1">
+          {/* İlk sayfa */}
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            onClick={() => onPageChange(1)}
+            disabled={currentPage === 1 || isLoading}
+            title="İlk sayfa"
+          >
+            <ChevronsLeft className="size-4" />
+          </Button>
+
+          {/* Önceki sayfa */}
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 1 || isLoading}
+            title="Önceki sayfa"
+          >
+            <ChevronLeft className="size-4" />
+          </Button>
+
+          {/* Sayfa numaraları */}
+          <div className="hidden items-center gap-1 sm:flex">
+            {getPageNumbers().map((pageNum, index) =>
+              pageNum === '...' ? (
+                <span
+                  key={`ellipsis-${index}`}
+                  className="px-2 text-muted-foreground"
+                >
+                  ...
+                </span>
+              ) : (
+                <Button
+                  key={pageNum}
+                  variant={currentPage === pageNum ? 'default' : 'outline'}
+                  size="icon"
+                  className="size-8"
+                  onClick={() => onPageChange(pageNum)}
+                  disabled={isLoading}
+                >
+                  {pageNum}
+                </Button>
+              )
+            )}
+          </div>
+
+          {/* Mobilde sayfa bilgisi */}
+          <span className="px-2 text-sm text-muted-foreground sm:hidden">
+            {currentPage} / {totalPages}
+          </span>
+
+          {/* Sonraki sayfa */}
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage === totalPages || isLoading}
+            title="Sonraki sayfa"
+          >
+            <ChevronRight className="size-4" />
+          </Button>
+
+          {/* Son sayfa */}
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            onClick={() => onPageChange(totalPages)}
+            disabled={currentPage === totalPages || isLoading}
+            title="Son sayfa"
+          >
+            <ChevronsRight className="size-4" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+});
+
+export function JobPostingsTable({
+  initialData,
+  initialPagination,
+  initialPlatforms,
+}) {
   const searchParams = useSearchParams();
 
-  const [postings, setPostings] = useState(initialPostings);
+  // State
+  const [postings, setPostings] = useState(initialData);
+  const [pagination, setPagination] = useState(initialPagination);
+  const [platforms, setPlatforms] = useState(initialPlatforms);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedPostingId, setSelectedPostingId] = useState(null);
   const [isPending, startTransition] = useTransition();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-  const [isRefreshing, startRefreshTransition] = useTransition();
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
 
-  // Polling interval (10 saniye)
+  // Local state for current filters (URL'den bağımsız, client-side yönetim)
+  const [currentFilters, setCurrentFilters] = useState(() => ({
+    page: parseInt(searchParams.get('page') || '1', 10),
+    pageSize: parseInt(searchParams.get('pageSize') || '20', 10),
+    platforms: searchParams.get('platform')?.split(',').filter(Boolean) || [],
+    llmStatuses:
+      searchParams.get('llm_status')?.split(',').filter(Boolean) || [],
+    jobTitle: searchParams.get('job_title') || '',
+    company: searchParams.get('company') || '',
+  }));
+
+  // Polling interval (5 saniye)
   const AUTO_REFRESH_INTERVAL = 5000;
 
-  // initialPostings değiştiğinde postings state'ini güncelle
-  // (router.refresh() sonrası yeni veri geldiğinde)
-  useEffect(() => {
-    setPostings(initialPostings);
-  }, [initialPostings]);
+  // Memoized filter values
+  const {
+    page: currentPage,
+    pageSize: currentPageSize,
+    platforms: appliedPlatforms,
+    llmStatuses: appliedLlmStatus,
+    jobTitle: appliedJobTitle,
+    company: appliedCompany,
+  } = currentFilters;
 
-  // Tabloyu yenile (server'dan güncel veri çek)
+  // URL'i güncelle (server component tetiklemeden)
+  const updateURLSilently = useCallback((filters) => {
+    const params = new URLSearchParams();
+
+    if (filters.page > 1) params.set('page', String(filters.page));
+    if (filters.pageSize !== 20)
+      params.set('pageSize', String(filters.pageSize));
+    if (filters.platforms?.length > 0)
+      params.set('platform', filters.platforms.join(','));
+    if (filters.llmStatuses?.length > 0)
+      params.set('llm_status', filters.llmStatuses.join(','));
+    if (filters.jobTitle?.trim())
+      params.set('job_title', filters.jobTitle.trim());
+    if (filters.company?.trim()) params.set('company', filters.company.trim());
+
+    const queryString = params.toString();
+    const newUrl = queryString ? `?${queryString}` : window.location.pathname;
+
+    // History API kullanarak URL'i güncelle - server component tetiklenmez
+    window.history.pushState({}, '', newUrl);
+  }, []);
+
+  // Verileri API'den çek (sessiz mod: loading göstermez)
+  const fetchData = useCallback(
+    async (params = {}, options = { silent: false }) => {
+      if (!options.silent) {
+        setIsLoading(true);
+      }
+
+      try {
+        const queryParams = new URLSearchParams();
+
+        if (params.page) queryParams.set('page', String(params.page));
+        if (params.pageSize)
+          queryParams.set('pageSize', String(params.pageSize));
+        if (params.platforms?.length > 0) {
+          queryParams.set('platform', params.platforms.join(','));
+        }
+        if (params.llmStatuses?.length > 0) {
+          queryParams.set('llm_status', params.llmStatuses.join(','));
+        }
+        if (params.jobTitle) queryParams.set('job_title', params.jobTitle);
+        if (params.company) queryParams.set('company', params.company);
+
+        const response = await fetch(
+          `/api/job-postings?${queryParams.toString()}`
+        );
+        const result = await response.json();
+
+        if (response.ok) {
+          setPostings(result.data);
+          setPagination(result.pagination);
+          if (result.platforms) {
+            setPlatforms(result.platforms);
+          }
+        } else {
+          toast.error('Veri yüklenirken hata oluştu');
+        }
+      } catch (error) {
+        console.error('Fetch error:', error);
+        toast.error('Veri yüklenirken hata oluştu');
+      } finally {
+        if (!options.silent) {
+          setIsLoading(false);
+        }
+        setIsRefreshing(false);
+      }
+    },
+    []
+  );
+
+  // Tabloyu yenile (sessiz - sadece ikon döner)
   const handleRefresh = useCallback(() => {
-    startRefreshTransition(() => {
-      router.refresh();
-      toast.success('Tablo yenilendi');
-    });
-  }, [router]);
+    setIsRefreshing(true);
+    fetchData(currentFilters, { silent: true });
+    toast.success('Tablo yenilendi');
+  }, [fetchData, currentFilters]);
 
   // Otomatik yenileme toggle
   const toggleAutoRefresh = useCallback(() => {
@@ -362,108 +653,81 @@ export function JobPostingsTable({ postings: initialPostings }) {
     }
   }, [autoRefresh]);
 
-  // Polling mekanizması
+  // Polling mekanizması (sessiz yenileme)
   useEffect(() => {
     if (!autoRefresh) return;
 
     const intervalId = setInterval(() => {
-      startRefreshTransition(() => {
-        router.refresh();
-      });
+      fetchData(currentFilters, { silent: true });
     }, AUTO_REFRESH_INTERVAL);
 
     return () => clearInterval(intervalId);
-  }, [autoRefresh, router]);
+  }, [autoRefresh, fetchData, currentFilters]);
 
-  // URL'den aktif filtreleri oku
-  const platformParam = searchParams.get('platform');
-  const appliedPlatforms = useMemo(
-    () => (platformParam ? platformParam.split(',').filter(Boolean) : []),
-    [platformParam]
+  // Filtreleri güncelle ve veri çek
+  const updateFiltersAndFetch = useCallback(
+    (updates) => {
+      const newFilters = {
+        page: updates.page ?? currentPage,
+        pageSize: updates.pageSize ?? currentPageSize,
+        platforms: updates.platforms ?? appliedPlatforms,
+        llmStatuses: updates.llmStatuses ?? appliedLlmStatus,
+        jobTitle: updates.jobTitle ?? appliedJobTitle,
+        company: updates.company ?? appliedCompany,
+      };
+
+      // State'i güncelle
+      setCurrentFilters(newFilters);
+
+      // URL'i sessizce güncelle
+      updateURLSilently(newFilters);
+
+      // Veriyi çek
+      fetchData(newFilters);
+    },
+    [
+      currentPage,
+      currentPageSize,
+      appliedPlatforms,
+      appliedLlmStatus,
+      appliedJobTitle,
+      appliedCompany,
+      updateURLSilently,
+      fetchData,
+    ]
   );
-  const llmStatusParam = searchParams.get('llm_status');
-  const appliedLlmStatus = useMemo(
-    () => (llmStatusParam ? llmStatusParam.split(',').filter(Boolean) : []),
-    [llmStatusParam]
+
+  // Sayfa değiştir
+  const handlePageChange = useCallback(
+    (newPage) => {
+      updateFiltersAndFetch({ page: newPage });
+    },
+    [updateFiltersAndFetch]
   );
-  const appliedJobTitle = searchParams.get('job_title') || '';
-  const appliedCompany = searchParams.get('company') || '';
 
-  // Benzersiz platform listesi
-  const uniquePlatforms = useMemo(() => {
-    const platforms = postings.map((p) => p.platform_name).filter(Boolean);
-    return [...new Set(platforms)].sort();
-  }, [postings]);
+  // Sayfa boyutu değiştir
+  const handlePageSizeChange = useCallback(
+    (newPageSize) => {
+      // Sayfa boyutu değiştiğinde ilk sayfaya dön
+      updateFiltersAndFetch({ page: 1, pageSize: newPageSize });
+    },
+    [updateFiltersAndFetch]
+  );
 
-  // Filtreleri URL'e yaz (submit) - FilterBar'dan çağrılır
+  // Filtreleri uygula (submit)
   const submitFilters = useCallback(
     ({ platforms, llmStatus, jobTitle, company }) => {
-      const params = new URLSearchParams();
-
-      if (platforms.length > 0) {
-        params.set('platform', platforms.join(','));
-      }
-      if (llmStatus.length > 0) {
-        params.set('llm_status', llmStatus.join(','));
-      }
-      if (jobTitle.trim()) {
-        params.set('job_title', jobTitle.trim());
-      }
-      if (company.trim()) {
-        params.set('company', company.trim());
-      }
-
-      const queryString = params.toString();
-      router.push(queryString ? `?${queryString}` : '?', { scroll: false });
+      // Filtre değiştiğinde ilk sayfaya dön
+      updateFiltersAndFetch({
+        page: 1,
+        platforms,
+        llmStatuses: llmStatus,
+        jobTitle,
+        company,
+      });
     },
-    [router]
+    [updateFiltersAndFetch]
   );
-
-  // Filtrelenmiş postings (URL'deki değerlere göre)
-  const filteredPostings = useMemo(() => {
-    return postings.filter((posting) => {
-      // Platform filtresi
-      if (appliedPlatforms.length > 0) {
-        if (!appliedPlatforms.includes(posting.platform_name)) {
-          return false;
-        }
-      }
-
-      // LLM status filtresi (yeni llm_status alanını kullan)
-      if (appliedLlmStatus.length > 0) {
-        const postingStatus =
-          posting.llm_status ||
-          (posting.llm_processed ? 'completed' : 'pending');
-        if (!appliedLlmStatus.includes(postingStatus)) {
-          return false;
-        }
-      }
-
-      // Job title filtresi
-      if (appliedJobTitle) {
-        const title = (posting.job_title || '').toLowerCase();
-        if (!title.includes(appliedJobTitle.toLowerCase())) {
-          return false;
-        }
-      }
-
-      // Company filtresi
-      if (appliedCompany) {
-        const company = (posting.company_name || '').toLowerCase();
-        if (!company.includes(appliedCompany.toLowerCase())) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [
-    postings,
-    appliedPlatforms,
-    appliedLlmStatus,
-    appliedJobTitle,
-    appliedCompany,
-  ]);
 
   const hasActiveFilters =
     appliedPlatforms.length > 0 ||
@@ -478,8 +742,14 @@ export function JobPostingsTable({ postings: initialPostings }) {
     (appliedCompany ? 1 : 0);
 
   const clearAllFilters = useCallback(() => {
-    router.push('?', { scroll: false });
-  }, [router]);
+    updateFiltersAndFetch({
+      page: 1,
+      platforms: [],
+      llmStatuses: [],
+      jobTitle: '',
+      company: '',
+    });
+  }, [updateFiltersAndFetch]);
 
   // FilterBar için key - URL değiştiğinde component resetlenir
   const filterBarKey = useMemo(
@@ -492,7 +762,7 @@ export function JobPostingsTable({ postings: initialPostings }) {
 
   const filterBarProps = useMemo(
     () => ({
-      platforms: uniquePlatforms,
+      platforms,
       initialPlatforms: appliedPlatforms,
       initialLlmStatus: appliedLlmStatus,
       initialJobTitle: appliedJobTitle,
@@ -502,7 +772,7 @@ export function JobPostingsTable({ postings: initialPostings }) {
       hasActiveFilters,
     }),
     [
-      uniquePlatforms,
+      platforms,
       appliedPlatforms,
       appliedLlmStatus,
       appliedJobTitle,
@@ -527,7 +797,8 @@ export function JobPostingsTable({ postings: initialPostings }) {
       try {
         await deleteJobPosting(idToDelete);
         toast.success('İlan başarıyla silindi.');
-        setPostings((prev) => prev.filter((p) => p.id !== idToDelete));
+        // Silme sonrası tabloyu sessizce yenile
+        fetchData(currentFilters, { silent: true });
       } catch (err) {
         console.error('Silme hatası:', err);
         toast.error('Silme işlemi başarısız oldu.');
@@ -535,9 +806,10 @@ export function JobPostingsTable({ postings: initialPostings }) {
         setDeleteModalOpen(false);
       }
     });
-  }, [selectedPostingId]);
+  }, [selectedPostingId, fetchData, currentFilters]);
 
-  if (postings.length === 0) {
+  // Boş durum kontrolü (filtresiz ve veri yoksa)
+  if (!isLoading && postings.length === 0 && !hasActiveFilters) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
         <Bot className="mb-4 size-12 opacity-50" />
@@ -556,9 +828,7 @@ export function JobPostingsTable({ postings: initialPostings }) {
               İş İlanları
             </h1>
             <Badge variant="secondary" className="text-xs">
-              {filteredPostings.length}
-              {filteredPostings.length !== postings.length &&
-                ` / ${postings.length}`}
+              {pagination.totalCount}
             </Badge>
             <Button
               variant="ghost"
@@ -642,8 +912,13 @@ export function JobPostingsTable({ postings: initialPostings }) {
         </div>
       </div>
 
+      {/* Loading State */}
+      {isLoading && postings.length === 0 && (
+        <JobPostingsTableSkeleton compact />
+      )}
+
       {/* No Results */}
-      {filteredPostings.length === 0 && (
+      {!isLoading && postings.length === 0 && hasActiveFilters && (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <Filter className="mb-4 size-12 opacity-50" />
           <p>Filtrelere uygun ilan bulunamadı.</p>
@@ -654,8 +929,12 @@ export function JobPostingsTable({ postings: initialPostings }) {
       )}
 
       {/* Desktop View */}
-      {filteredPostings.length > 0 && (
-        <div className="hidden rounded-lg border md:block">
+      {postings.length > 0 && (
+        <div
+          className={`hidden rounded-lg border md:block ${
+            isLoading ? 'opacity-60' : ''
+          }`}
+        >
           <Table>
             <TableHeader>
               <TableRow>
@@ -677,7 +956,7 @@ export function JobPostingsTable({ postings: initialPostings }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPostings.map((posting) => (
+              {postings.map((posting) => (
                 <TableRow key={posting.id}>
                   <TableCell className="text-base text-muted-foreground">
                     {posting.scraped_at
@@ -797,9 +1076,13 @@ export function JobPostingsTable({ postings: initialPostings }) {
       )}
 
       {/* Mobile View */}
-      {filteredPostings.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 md:hidden">
-          {filteredPostings.map((posting) => (
+      {postings.length > 0 && (
+        <div
+          className={`grid grid-cols-1 gap-4 md:hidden ${
+            isLoading ? 'opacity-60' : ''
+          }`}
+        >
+          {postings.map((posting) => (
             <Card key={posting.id}>
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
@@ -912,6 +1195,21 @@ export function JobPostingsTable({ postings: initialPostings }) {
         </div>
       )}
 
+      {/* Pagination */}
+      {postings.length > 0 && (
+        <div className="mt-6">
+          <Pagination
+            currentPage={pagination.page}
+            totalPages={pagination.totalPages}
+            totalCount={pagination.totalCount}
+            pageSize={pagination.pageSize}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            isLoading={isLoading}
+          />
+        </div>
+      )}
+
       <Dialog
         open={deleteModalOpen}
         onOpenChange={(open) => {
@@ -949,38 +1247,43 @@ export function JobPostingsTable({ postings: initialPostings }) {
 }
 
 // Skeleton Loading Component
-export function JobPostingsTableSkeleton() {
+export function JobPostingsTableSkeleton({ compact = false }) {
+  const rowCount = compact ? 3 : 6;
+  const cardCount = compact ? 2 : 4;
+
   return (
     <div className="space-y-6">
       {/* Header Skeleton */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <Skeleton className="h-9 w-32 sm:h-10 sm:w-40" />
-          <Skeleton className="h-6 w-12 rounded-full" />
+      {!compact && (
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-9 w-32 sm:h-10 sm:w-40" />
+            <Skeleton className="h-6 w-12 rounded-full" />
+          </div>
+          {/* Desktop Filter Skeleton */}
+          <div className="hidden items-end gap-3 lg:flex">
+            <div className="space-y-1.5">
+              <Skeleton className="h-3 w-14" />
+              <Skeleton className="h-9 w-[180px]" />
+            </div>
+            <div className="space-y-1.5">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-9 w-[140px]" />
+            </div>
+            <div className="space-y-1.5">
+              <Skeleton className="h-3 w-14" />
+              <Skeleton className="h-9 w-[180px]" />
+            </div>
+            <div className="space-y-1.5">
+              <Skeleton className="h-3 w-14" />
+              <Skeleton className="h-9 w-[180px]" />
+            </div>
+            <Skeleton className="h-9 w-24" />
+          </div>
+          {/* Mobile Filter Button Skeleton */}
+          <Skeleton className="h-10 w-full lg:hidden" />
         </div>
-        {/* Desktop Filter Skeleton */}
-        <div className="hidden items-end gap-3 lg:flex">
-          <div className="space-y-1.5">
-            <Skeleton className="h-3 w-14" />
-            <Skeleton className="h-9 w-[180px]" />
-          </div>
-          <div className="space-y-1.5">
-            <Skeleton className="h-3 w-16" />
-            <Skeleton className="h-9 w-[140px]" />
-          </div>
-          <div className="space-y-1.5">
-            <Skeleton className="h-3 w-14" />
-            <Skeleton className="h-9 w-[180px]" />
-          </div>
-          <div className="space-y-1.5">
-            <Skeleton className="h-3 w-14" />
-            <Skeleton className="h-9 w-[180px]" />
-          </div>
-          <Skeleton className="h-9 w-24" />
-        </div>
-        {/* Mobile Filter Button Skeleton */}
-        <Skeleton className="h-10 w-full lg:hidden" />
-      </div>
+      )}
 
       {/* Desktop Table Skeleton */}
       <div className="hidden rounded-lg border md:block">
@@ -996,7 +1299,7 @@ export function JobPostingsTableSkeleton() {
             <Skeleton className="h-4 w-20" />
           </div>
           {/* Table Rows */}
-          {Array.from({ length: 6 }).map((_, i) => (
+          {Array.from({ length: rowCount }).map((_, i) => (
             <div
               key={i}
               className="flex items-center gap-4 border-b px-4 py-4 last:border-0"
@@ -1020,7 +1323,7 @@ export function JobPostingsTableSkeleton() {
 
       {/* Mobile Card Skeleton */}
       <div className="grid grid-cols-1 gap-4 md:hidden">
-        {Array.from({ length: 4 }).map((_, i) => (
+        {Array.from({ length: cardCount }).map((_, i) => (
           <div
             key={i}
             className="rounded-lg border p-4 space-y-4"
@@ -1055,6 +1358,28 @@ export function JobPostingsTableSkeleton() {
           </div>
         ))}
       </div>
+
+      {/* Pagination Skeleton */}
+      {!compact && (
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-4 w-32" />
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-8 w-[70px]" />
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <Skeleton className="size-8" />
+            <Skeleton className="size-8" />
+            <Skeleton className="size-8" />
+            <Skeleton className="size-8" />
+            <Skeleton className="size-8" />
+            <Skeleton className="size-8" />
+            <Skeleton className="size-8" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
