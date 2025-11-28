@@ -197,19 +197,40 @@ CORE JOB FIELDS
 TEXTUAL SECTIONS
 ---------------------------------------
 
+IMPORTANT BILINGUAL RULE FOR FOUR FIELDS:
+- For the following FOUR fields:
+  - "description_full"
+  - "responsibilities_text"
+  - "requirements_text"
+  - "nice_to_have_text"
+- If the field is non-null, its value MUST contain:
+  1) The original English content (cleaned and/or summarised as described below), and
+  2) Immediately after it, a space and then the Turkish translation in parentheses.
+- Format (example):
+  - "Abacus.AI is seeking an expert-level Front-End Engineer to design and build world-class user interfaces for our products. (Abacus.AI ürünleri için dünya çapında kullanıcı arayüzleri tasarlayıp geliştirecek deneyimli bir ön yüz mühendisi arıyor.)"
+- The Turkish translation MUST:
+  - Be fluent, natural Turkish.
+  - Preserve the original meaning.
+  - NOT be a word-for-word or unnatural "choppy" translation.
+  - NOT use the "-" (dash) character anywhere in the Turkish text.
+- If there is no content for one of these sections, set the field to null (do NOT output an empty pair of parentheses).
+
 "description_full":
 - A cleaned, concise description of the whole job.
 - Include the main narrative text (company description, role overview, high-level responsibilities).
 - REMOVE obvious UI noise like "Apply", "Save job", "Show more".
 - Do NOT paste the entire raw_text here.
-- Aim for a short summary: roughly 3–6 sentences and ideally no more than about 700 characters.
-- The goal is a readable overview, not a full copy of the original posting.
+- Aim for a short summary of the English part: roughly 3–6 sentences and ideally no more than about 700 characters for the English portion alone.
+- Then append the Turkish translation in parentheses, as described in the bilingual rule.
+- The goal is a readable English overview plus a clear Turkish translation, not a full copy of the original posting.
 
 "responsibilities_text":
 - The section describing what the person will be doing.
 - Often under headings like "Responsibilities", "What you'll do", "Key responsibilities".
 - If responsibilities are scattered, you may gather the relevant sentences into this field.
 - If you cannot separate responsibilities from the rest, set null.
+- If non-null, the value MUST follow the bilingual format:
+  - First the English responsibilities text, then a space, then the Turkish translation in parentheses.
 
 "requirements_text":
 - The section describing required skills and experience.
@@ -219,17 +240,22 @@ TEXTUAL SECTIONS
   - Do NOT remove phrases like "or related field", "or equivalent experience".
   - Do NOT make the requirements sound stricter than in the original text.
 - If there is no clear separation and you cannot reliably isolate requirements, set null.
+- If non-null, the value MUST follow the bilingual format:
+  - First the English requirements text, then a space, then the Turkish translation in parentheses.
 
 "nice_to_have_text":
 - Optional or preferred skills/experience.
 - Often under headings like "Nice to have", "Preferred", "Bonus points", "It's a plus if".
 - If no such content appears, set null.
+- If non-null, the value MUST follow the bilingual format:
+  - First the English nice-to-have text, then a space, then the Turkish translation in parentheses.
 
 "benefits_text":
 - Benefits, perks, what the company offers:
   - e.g. healthcare, pension, stock options, holidays, remote budget, training budget.
 - Look for sections named "Benefits", "What we offer", "Perks", "Why Join Us", or similar.
-- If such a section exists, summarise its content here in a few sentences.
+- If such a section exists, summarise its content here in a few sentences (in English only).
+- You do NOT need to append a Turkish translation for benefits_text.
 - If nothing that looks like benefits/perks is stated, set null.
 
 ---------------------------------------

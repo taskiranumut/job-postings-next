@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
 import { getJobPosting } from '@/lib/actions';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,11 +32,66 @@ function InfoRow({ label, value }) {
   );
 }
 
+function parseTextWithTranslation(text) {
+  if (!text) return { english: null, turkish: null };
+
+  const trimmedText = text.trim();
+
+  // Check if text ends with a closing parenthesis
+  if (!trimmedText.endsWith(')')) {
+    return { english: text, turkish: null };
+  }
+
+  // Find the matching opening parenthesis by traversing from the end
+  let depth = 0;
+  let openIndex = -1;
+
+  for (let i = trimmedText.length - 1; i >= 0; i--) {
+    if (trimmedText[i] === ')') {
+      depth++;
+    } else if (trimmedText[i] === '(') {
+      depth--;
+      if (depth === 0) {
+        openIndex = i;
+        break;
+      }
+    }
+  }
+
+  // Only parse if we found a valid opening parenthesis and there's content before it
+  if (openIndex > 0) {
+    const english = trimmedText.substring(0, openIndex).trim();
+    const turkish = trimmedText
+      .substring(openIndex + 1, trimmedText.length - 1)
+      .trim();
+
+    // Only return as parsed if both parts have meaningful content
+    if (english.length > 20 && turkish.length > 20) {
+      return { english, turkish };
+    }
+  }
+
+  return { english: text, turkish: null };
+}
+
 function TextBlock({ label, value }) {
+  const { english, turkish } = parseTextWithTranslation(value);
+
   return (
     <div>
       <p className="mb-2 font-semibold text-muted-foreground">{label}:</p>
-      <p className="whitespace-pre-wrap text-base">{value || '-'}</p>
+      {english ? (
+        <div className="space-y-3">
+          <p className="whitespace-pre-wrap text-base">{english}</p>
+          {turkish && (
+            <p className="whitespace-pre-wrap text-base text-muted-foreground border-l-2 border-muted-foreground/20 pl-3">
+              {turkish}
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="whitespace-pre-wrap text-base">-</p>
+      )}
     </div>
   );
 }
