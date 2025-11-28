@@ -2,8 +2,9 @@
 
 import { supabase } from './supabase';
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 import { processPendingJobs } from './processPendingJobs';
-import { triggerProcessSingleJob, LLM_STATUS } from './processSingleJob';
+import { LLM_STATUS } from './processSingleJob';
 
 // ==================== JOB POSTINGS ====================
 
@@ -43,8 +44,26 @@ export async function createJobPosting(formData) {
   if (error) throw new Error(error.message);
 
   // Asenkron olarak LLM işlemesini başlat (otomatik mod açıksa çalışır)
+  // Internal API endpoint kullanarak Vercel'de waitUntil desteği sağlıyoruz
   if (data?.id) {
-    triggerProcessSingleJob(data.id);
+    try {
+      // Host bilgisini al
+      const headersList = await headers();
+      const host = headersList.get('host') || 'localhost:3000';
+      const protocol = host.includes('localhost') ? 'http' : 'https';
+      const baseUrl = `${protocol}://${host}`;
+
+      // Fire-and-forget: await etmiyoruz, sadece isteği başlatıyoruz
+      fetch(`${baseUrl}/api/process-job`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: data.id }),
+      }).catch((err) => {
+        console.error('[createJobPosting] Failed to trigger processing:', err);
+      });
+    } catch (err) {
+      console.error('[createJobPosting] Error triggering processing:', err);
+    }
   }
 
   revalidatePath('/');
