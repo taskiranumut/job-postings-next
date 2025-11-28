@@ -465,17 +465,18 @@ export function JobPostingsTable({ postings: initialPostings }) {
   const handleDelete = useCallback(() => {
     if (!selectedPostingId) return;
 
+    const idToDelete = selectedPostingId;
+
     startTransition(async () => {
       try {
-        await deleteJobPosting(selectedPostingId);
+        await deleteJobPosting(idToDelete);
         toast.success('İlan başarıyla silindi.');
-        setPostings((prev) => prev.filter((p) => p.id !== selectedPostingId));
-        setDeleteModalOpen(false);
+        setPostings((prev) => prev.filter((p) => p.id !== idToDelete));
       } catch (err) {
         console.error('Silme hatası:', err);
         toast.error('Silme işlemi başarısız oldu.');
       } finally {
-        setSelectedPostingId(null);
+        setDeleteModalOpen(false);
       }
     });
   }, [selectedPostingId]);
@@ -751,7 +752,13 @@ export function JobPostingsTable({ postings: initialPostings }) {
         </div>
       )}
 
-      <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+      <Dialog
+        open={deleteModalOpen}
+        onOpenChange={(open) => {
+          setDeleteModalOpen(open);
+          if (!open) setSelectedPostingId(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>İlanı Sil</DialogTitle>
