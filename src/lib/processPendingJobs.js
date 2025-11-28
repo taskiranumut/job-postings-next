@@ -1,83 +1,75 @@
 import { supabase } from './supabase';
 import { llmClient } from './llmClient';
 
+// Timeout süresi: 5 dakika (ms cinsinden)
+const PROCESSING_TIMEOUT_MS = 5 * 60 * 1000;
+
 /**
- * Bekleyen iş ilanlarını işler
+ * Bekleyen iş ilanlarını işler (çakışma korumalı)
  * @param {number} limit - İşlenecek maksimum ilan sayısı
  * @returns {Promise<Object>} İşlem sonucu
  */
 export async function processPendingJobs(limit = 5) {
   const modelName = process.env.LLM_MODEL_NAME || 'gpt-4o-mini';
-  console.log(`Starting batch process. Limit: ${limit}`);
+  const now = new Date().toISOString();
 
-  // 0. Önce işlenecek ilan var mı kontrol et
-  const { count } = await supabase
-    .from('job_postings')
-    .select('*', { count: 'exact', head: true })
-    .eq('llm_processed', false);
+  console.log(`[BatchProcess] Starting. Limit: ${limit}`);
 
-  if (count === 0 || count === null) {
-    console.log('No pending jobs found. Skipping run creation.');
-    return {
-      run_id: null,
-      status: 'skipped',
-      total_selected: 0,
-      total_success: 0,
-      total_error: 0,
-      message: 'No pending jobs found',
-    };
-  }
-
-  // 1. Yeni bir Run kaydı oluştur
-  const { data: runData, error: runError } = await supabase
-    .from('llm_runs')
-    .insert({
-      status: 'running',
-      total_selected: 0,
-    })
-    .select()
-    .single();
-
-  if (runError || !runData) {
-    console.error(
-      'Failed to create execution run record:',
-      JSON.stringify(runError, null, 2)
-    );
-    return { error: 'Failed to initialize run', details: runError };
-  }
-
-  const runId = runData.id;
   let successCount = 0;
   let errorCount = 0;
+  const processedJobs = [];
 
   try {
-    // 2. İşlenmemiş ilanları çek
+    // 1. Bekleyen ilanları çek (işlenmeyen veya timeout olanlar)
     const { data: pendingJobs, error: fetchError } = await supabase
       .from('job_postings')
-      .select('id, platform_name, url, raw_text')
+      .select('id, platform_name, url, raw_text, llm_started_at')
       .eq('llm_processed', false)
       .order('scraped_at', { ascending: true })
-      .limit(limit);
+      .limit(limit * 2); // Fazladan çek, bazıları skip edilebilir
 
     if (fetchError) {
       throw new Error(`Fetch failed: ${fetchError.message}`);
     }
 
-    const jobsToProcess = pendingJobs || [];
-    console.log(`Found ${jobsToProcess.length} pending jobs.`);
+    // İşlenebilir olanları filtrele (null veya timeout)
+    const timeoutMs = Date.now() - PROCESSING_TIMEOUT_MS;
+    const availableJobs = (pendingJobs || [])
+      .filter((job) => {
+        if (!job.llm_started_at) return true;
+        return new Date(job.llm_started_at).getTime() < timeoutMs;
+      })
+      .slice(0, limit);
 
-    // Run kaydını güncelle (seçilen sayı)
-    await supabase
-      .from('llm_runs')
-      .update({ total_selected: jobsToProcess.length })
-      .eq('id', runId);
+    if (availableJobs.length === 0) {
+      console.log('[BatchProcess] No pending jobs found.');
+      return {
+        status: 'skipped',
+        total_selected: 0,
+        total_success: 0,
+        total_error: 0,
+        message: 'No pending jobs found',
+      };
+    }
 
-    // 3. Her ilanı işle
-    let counter = 0;
-    for (const job of jobsToProcess) {
-      counter++;
+    console.log(`[BatchProcess] Found ${availableJobs.length} pending jobs.`);
+
+    // 2. Her ilanı işle
+    for (const job of availableJobs) {
       try {
-        // LLM Çağrısı (süre ölçümü ile)
+        // 2a. Claim: llm_started_at'ı güncelle
+        const { error: claimError } = await supabase
+          .from('job_postings')
+          .update({ llm_started_at: now })
+          .eq('id', job.id)
+          .eq('llm_processed', false);
+
+        if (claimError) {
+          console.log(`[BatchProcess] Job ${job.id} claim failed, skipping.`);
+          continue;
+        }
+
+        // 2b. LLM Çağrısı (süre ölçümü ile)
         const startTime = Date.now();
         const extraction = await llmClient.parseJobPosting({
           platform_name: job.platform_name,
@@ -86,21 +78,17 @@ export async function processPendingJobs(limit = 5) {
         });
         const durationMs = Date.now() - startTime;
 
-        // DB Update (Extraction sonucu + metadata)
-        console.log('---------------------------------------------------');
-        console.log(`PROCESSING - Job ID: ${job.id}`);
         console.log(
-          `Job: ${extraction.job_title} @ ${extraction.company_name}`
+          `[BatchProcess] Processed: ${extraction.job_title} @ ${extraction.company_name} (${durationMs}ms)`
         );
-        console.log(`Counter: ${counter} / ${jobsToProcess.length}`);
-        console.log(`Duration: ${durationMs}ms`);
-        console.log('---------------------------------------------------');
 
+        // 2c. DB Update (başarılı)
         const { error: updateError } = await supabase
           .from('job_postings')
           .update({
             ...extraction,
             llm_processed: true,
+            llm_started_at: null, // Kilidi kaldır
             llm_model_version: modelName,
             llm_notes: `Processed successfully at ${new Date().toISOString()}`,
           })
@@ -108,9 +96,8 @@ export async function processPendingJobs(limit = 5) {
 
         if (updateError) throw updateError;
 
-        // Log: Success (ilan bilgisi ve süre ile)
+        // 2d. Log kaydı
         await supabase.from('llm_logs').insert({
-          run_id: runId,
           job_posting_id: job.id,
           level: 'info',
           message: 'Processed successfully',
@@ -120,30 +107,34 @@ export async function processPendingJobs(limit = 5) {
         });
 
         successCount++;
+        processedJobs.push({
+          id: job.id,
+          job_title: extraction.job_title,
+          company_name: extraction.company_name,
+        });
       } catch (err) {
-        console.error(`Error processing job ${job.id}:`, err);
+        console.error(`[BatchProcess] Error processing job ${job.id}:`, err);
         errorCount++;
 
-        // Log: Error (ilan bilgisi ile)
+        // Hata logu
         await supabase.from('llm_logs').insert({
-          run_id: runId,
           job_posting_id: job.id,
           level: 'error',
           message: err.message || 'Processing failed',
           details: { error: err.message || String(err) },
         });
 
-        // Job kaydına not düş (llm_processed false kalsın ki tekrar denenebilsin)
+        // Kilidi kaldır ve hata notu düş
         await supabase
           .from('job_postings')
           .update({
-            llm_notes: `Parsing failed: ${err.message}`,
+            llm_started_at: null,
+            llm_notes: `Processing failed: ${err.message}`,
           })
           .eq('id', job.id);
       }
     }
 
-    // 4. Run tamamlandı, durumu güncelle
     const finalStatus =
       errorCount === 0 && successCount > 0
         ? 'success'
@@ -153,35 +144,19 @@ export async function processPendingJobs(limit = 5) {
         ? 'partial'
         : 'success';
 
-    await supabase
-      .from('llm_runs')
-      .update({
-        status: finalStatus,
-        finished_at: new Date().toISOString(),
-        total_success: successCount,
-        total_error: errorCount,
-      })
-      .eq('id', runId);
+    console.log(
+      `[BatchProcess] Completed. Success: ${successCount}, Errors: ${errorCount}`
+    );
 
     return {
-      run_id: runId,
       status: finalStatus,
-      total_selected: jobsToProcess.length,
+      total_selected: availableJobs.length,
       total_success: successCount,
       total_error: errorCount,
+      processed: processedJobs,
     };
   } catch (globalError) {
-    // Global bir hata olursa Run'ı error olarak kapat
-    console.error('Global processing error:', globalError);
-    await supabase
-      .from('llm_runs')
-      .update({
-        status: 'error',
-        finished_at: new Date().toISOString(),
-        notes: `Global crash: ${globalError.message}`,
-      })
-      .eq('id', runId);
-
+    console.error('[BatchProcess] Global error:', globalError);
     throw globalError;
   }
 }

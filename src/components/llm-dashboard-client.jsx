@@ -214,7 +214,7 @@ export function LLMDashboardClient({
         </CardContent>
       </Card>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - İlan Durumu */}
       {status && (
         <div className="mb-4 grid gap-4 sm:grid-cols-3">
           <Card>
@@ -248,30 +248,70 @@ export function LLMDashboardClient({
         </div>
       )}
 
-      {/* Last Run Info */}
-      {status?.last_run && (
-        <Card className="mb-4">
-          <CardContent className="flex flex-wrap items-center gap-2 text-base">
-            <span className="font-semibold">Son Çalışma:</span>
-            <span>{formatDate(status.last_run.started_at)}</span>
-            <span className="text-muted-foreground">-</span>
-            <span>Durum:</span>
-            <Badge
-              variant={
-                status.last_run.status === 'completed' ? 'default' : 'secondary'
-              }
-              className={
-                status.last_run.status === 'completed'
-                  ? 'bg-green-600 hover:bg-green-600'
-                  : 'bg-yellow-600 hover:bg-yellow-600'
-              }
-            >
-              {status.last_run.status}
-            </Badge>
-            <span className="text-muted-foreground">-</span>
-            <span>İşlenen: {status.last_run.processed_count}</span>
-          </CardContent>
-        </Card>
+      {/* Stats Cards - İşlem İstatistikleri */}
+      {status?.stats && (
+        <div className="mb-4 grid gap-4 sm:grid-cols-3">
+          <Card className="border-blue-500/30 bg-blue-500/5">
+            <CardContent>
+              <p className="text-sm font-semibold uppercase text-blue-400">
+                Bugün
+              </p>
+              <p className="mt-1 text-2xl font-bold">
+                {status.stats.today.count} işlem
+              </p>
+              <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
+                <span>
+                  Ort: {(status.stats.today.avgDuration / 1000).toFixed(1)}s
+                </span>
+                {status.stats.today.errorCount > 0 && (
+                  <span className="text-red-400">
+                    {status.stats.today.errorCount} hata
+                  </span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-purple-500/30 bg-purple-500/5">
+            <CardContent>
+              <p className="text-sm font-semibold uppercase text-purple-400">
+                Bu Hafta
+              </p>
+              <p className="mt-1 text-2xl font-bold">
+                {status.stats.week.count} işlem
+              </p>
+              <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
+                <span>
+                  Ort: {(status.stats.week.avgDuration / 1000).toFixed(1)}s
+                </span>
+                {status.stats.week.errorCount > 0 && (
+                  <span className="text-red-400">
+                    {status.stats.week.errorCount} hata
+                  </span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-emerald-500/30 bg-emerald-500/5">
+            <CardContent>
+              <p className="text-sm font-semibold uppercase text-emerald-400">
+                Toplam
+              </p>
+              <p className="mt-1 text-2xl font-bold">
+                {status.stats.allTime.count} işlem
+              </p>
+              <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
+                <span>
+                  Ort: {(status.stats.allTime.avgDuration / 1000).toFixed(1)}s
+                </span>
+                {status.stats.allTime.errorCount > 0 && (
+                  <span className="text-red-400">
+                    {status.stats.allTime.errorCount} hata
+                  </span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* Logs Table */}
