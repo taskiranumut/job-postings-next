@@ -73,15 +73,7 @@ export async function processSingleJob(jobId) {
       };
     }
 
-    // 2. Log: Processing started
-    await supabase.from('llm_logs').insert({
-      job_posting_id: job.id,
-      level: 'info',
-      message: 'Auto-processing started (from extension)',
-      details: { url: job.url, trigger: 'extension' },
-    });
-
-    // 3. LLM Çağrısı
+    // 2. LLM Çağrısı (süre ölçümü ile)
     const startTime = Date.now();
     const extraction = await llmClient.parseJobPosting({
       platform_name: job.platform_name,
@@ -93,8 +85,11 @@ export async function processSingleJob(jobId) {
     console.log(
       `[ProcessSingleJob] LLM completed for ${jobId} in ${durationMs}ms`
     );
+    console.log(
+      `[ProcessSingleJob] Job: ${extraction.job_title} @ ${extraction.company_name}`
+    );
 
-    // 4. DB Update
+    // 3. DB Update
     const { error: updateError } = await supabase
       .from('job_postings')
       .update({
@@ -109,11 +104,13 @@ export async function processSingleJob(jobId) {
       throw updateError;
     }
 
-    // 5. Log: Success
+    // 4. Log: Success (ilan bilgisi ve süre ile)
     await supabase.from('llm_logs').insert({
       job_posting_id: job.id,
       level: 'info',
-      message: 'Auto-processed successfully (from extension)',
+      message: 'Processed successfully',
+      job_title: extraction.job_title || null,
+      company_name: extraction.company_name || null,
       duration_ms: durationMs,
       details: { trigger: 'extension' },
     });
@@ -129,11 +126,11 @@ export async function processSingleJob(jobId) {
   } catch (err) {
     console.error(`[ProcessSingleJob] Error processing job ${jobId}:`, err);
 
-    // Log: Error
+    // Log: Error (hata mesajı ile)
     await supabase.from('llm_logs').insert({
       job_posting_id: jobId,
       level: 'error',
-      message: 'Auto-processing failed (from extension)',
+      message: err.message || 'Processing failed',
       details: { error: err.message || String(err), trigger: 'extension' },
     });
 

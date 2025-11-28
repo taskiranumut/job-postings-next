@@ -77,15 +77,6 @@ export async function processPendingJobs(limit = 5) {
     for (const job of jobsToProcess) {
       counter++;
       try {
-        // Log: Processing started
-        await supabase.from('llm_logs').insert({
-          run_id: runId,
-          job_posting_id: job.id,
-          level: 'info',
-          message: 'Processing job posting',
-          details: { url: job.url },
-        });
-
         // LLM Çağrısı (süre ölçümü ile)
         const startTime = Date.now();
         const extraction = await llmClient.parseJobPosting({
@@ -99,8 +90,7 @@ export async function processPendingJobs(limit = 5) {
         console.log('---------------------------------------------------');
         console.log(`PROCESSING - Job ID: ${job.id}`);
         console.log(
-          'LLM Extraction Result:',
-          JSON.stringify(extraction, null, 2)
+          `Job: ${extraction.job_title} @ ${extraction.company_name}`
         );
         console.log(`Counter: ${counter} / ${jobsToProcess.length}`);
         console.log(`Duration: ${durationMs}ms`);
@@ -118,12 +108,14 @@ export async function processPendingJobs(limit = 5) {
 
         if (updateError) throw updateError;
 
-        // Log: Success (süre bilgisi ile)
+        // Log: Success (ilan bilgisi ve süre ile)
         await supabase.from('llm_logs').insert({
           run_id: runId,
           job_posting_id: job.id,
           level: 'info',
           message: 'Processed successfully',
+          job_title: extraction.job_title || null,
+          company_name: extraction.company_name || null,
           duration_ms: durationMs,
         });
 
@@ -132,12 +124,12 @@ export async function processPendingJobs(limit = 5) {
         console.error(`Error processing job ${job.id}:`, err);
         errorCount++;
 
-        // Log: Error
+        // Log: Error (ilan bilgisi ile)
         await supabase.from('llm_logs').insert({
           run_id: runId,
           job_posting_id: job.id,
           level: 'error',
-          message: 'Processing failed',
+          message: err.message || 'Processing failed',
           details: { error: err.message || String(err) },
         });
 

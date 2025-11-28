@@ -275,22 +275,23 @@ export function LLMDashboardClient({
       )}
 
       {/* Logs Table */}
-      <h2 className="mb-4 text-xl font-semibold">Son Loglar</h2>
+      <h2 className="mb-4 text-xl font-semibold">Son İşlemler</h2>
       <div className="rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Tarih</TableHead>
-              <TableHead>Seviye</TableHead>
-              <TableHead>Mesaj</TableHead>
-              <TableHead>Süre (sn)</TableHead>
+              <TableHead>İlan</TableHead>
+              <TableHead>Şirket</TableHead>
+              <TableHead>Durum</TableHead>
+              <TableHead className="text-right">Süre</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {logs.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={4}
+                  colSpan={5}
                   className="py-8 text-center text-muted-foreground"
                 >
                   Kayıt bulunamadı.
@@ -299,27 +300,39 @@ export function LLMDashboardClient({
             ) : (
               logs.map((log) => (
                 <TableRow key={log.id}>
-                  <TableCell className="text-base">
+                  <TableCell className="text-sm text-muted-foreground">
                     {formatDate(log.created_at)}
                   </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        log.level === 'error' ? 'destructive' : 'secondary'
-                      }
-                    >
-                      {log.level === 'error' ? 'Hata' : 'Bilgi'}
-                    </Badge>
+                  <TableCell
+                    className="max-w-[200px] truncate font-medium"
+                    title={log.job_title}
+                  >
+                    {log.job_title || '-'}
                   </TableCell>
                   <TableCell
-                    className="max-w-[300px] truncate text-base"
-                    title={log.message}
+                    className="max-w-[150px] truncate text-muted-foreground"
+                    title={log.company_name}
                   >
-                    {log.message || '-'}
+                    {log.company_name || '-'}
                   </TableCell>
-                  <TableCell className="text-base tabular-nums">
+                  <TableCell>
+                    {log.level === 'error' ? (
+                      <Badge
+                        variant="destructive"
+                        className="cursor-help"
+                        title={log.message}
+                      >
+                        Hata
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-green-600 hover:bg-green-600">
+                        Başarılı
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
                     {log.duration_ms
-                      ? (log.duration_ms / 1000).toFixed(2)
+                      ? `${(log.duration_ms / 1000).toFixed(2)}s`
                       : '-'}
                   </TableCell>
                 </TableRow>
