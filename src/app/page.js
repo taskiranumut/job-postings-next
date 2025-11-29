@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export default async function HomePage({ searchParams }) {
   const params = await searchParams;
 
-  // URL parametrelerini oku
+  // Read URL parameters
   const page = parseInt(params?.page || '1', 10);
   const pageSize = parseInt(params?.pageSize || '20', 10);
   const platforms = params?.platform?.split(',').filter(Boolean) || [];
@@ -18,7 +18,7 @@ export default async function HomePage({ searchParams }) {
   const jobTitle = params?.job_title || '';
   const company = params?.company || '';
 
-  // Verileri çek
+  // Fetch data
   const [result, uniquePlatforms] = await Promise.all([
     getJobPostingsPaginated({
       page,

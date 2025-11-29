@@ -66,7 +66,7 @@ export function LLMDashboardClient({
   );
   const [resetModalOpen, setResetModalOpen] = useState(false);
 
-  // İşleme durumu state'leri
+  // Processing status states
   const [processingStatus, setProcessingStatus] = useState({
     processing: [],
     pending_count: 0,
@@ -81,7 +81,7 @@ export function LLMDashboardClient({
 
   const isLoading = isRefreshing || isProcessing || isResetting || isToggling;
 
-  // İşleme durumunu getir
+  // Fetch processing status
   const fetchProcessingStatus = useCallback(async () => {
     try {
       const newProcessingStatus = await getProcessingStatus();
@@ -93,34 +93,34 @@ export function LLMDashboardClient({
     }
   }, []);
 
-  // İşleme durumunu takip etmek için ref
+  // Ref to track processing status
   const wasProcessingRef = useRef(processingStatus.is_processing);
 
-  // wasProcessingRef'i güncel tut
+  // Keep wasProcessingRef updated
   useEffect(() => {
     wasProcessingRef.current = processingStatus.is_processing;
   }, [processingStatus.is_processing]);
 
-  // Polling: İşleme durumunu düzenli aralıklarla kontrol et
+  // Polling: Check processing status at regular intervals
   useEffect(() => {
     let isMounted = true;
 
-    // İlk yükleme
+    // Initial load
     (async () => {
       if (isMounted) {
         await fetchProcessingStatus();
       }
     })();
 
-    // Polling başlat
+    // Start polling
     const interval = setInterval(async () => {
       if (!isMounted) return;
 
       const newStatus = await fetchProcessingStatus();
 
-      // Eğer işleme tamamlandıysa ana verileri de güncelle
+      // If processing is complete, update main data as well
       if (newStatus && !newStatus.is_processing && wasProcessingRef.current) {
-        // İşleme bitti, verileri yenile
+        // Processing finished, refresh data
         const [updatedStatus, updatedLogs] = await Promise.all([
           getLLMStatus(),
           getLLMLogs(20),
@@ -150,8 +150,8 @@ export function LLMDashboardClient({
         setLogs(newLogs);
         setProcessingStatus(newProcessingStatus);
       } catch (err) {
-        console.error('Veri çekme hatası:', err);
-        toast.error('Veriler yüklenirken hata oluştu.');
+        console.error('Data fetch error:', err);
+        toast.error('Error loading data.');
       }
     });
   };
@@ -159,24 +159,24 @@ export function LLMDashboardClient({
   const handleProcessOnce = (limit = 5) => {
     startProcess(async () => {
       try {
-        // İşleme başladığını hemen göster
+        // Immediately show that processing started
         await fetchProcessingStatus();
 
         const result = await processLLMOnce(limit);
 
         if (result.total_selected === 0) {
-          toast.info('İşlenecek bekleyen ilan bulunamadı.');
+          toast.info('No pending jobs found to process.');
         } else {
           const processedCount = result.total_success || 0;
           toast.success(
-            `İşlem tamamlandı. ${processedCount}/${result.total_selected} ilan işlendi.`
+            `Process completed. ${processedCount}/${result.total_selected} jobs processed.`
           );
         }
 
         fetchData();
       } catch (err) {
-        console.error('Process hatası:', err);
-        toast.error(err.message || 'İşlem sırasında hata oluştu.');
+        console.error('Process error:', err);
+        toast.error(err.message || 'Error occurred during process.');
         await fetchProcessingStatus();
       }
     });
@@ -186,16 +186,14 @@ export function LLMDashboardClient({
     startReset(async () => {
       try {
         const resetData = await resetLLMProcessing();
-        toast.info(
-          `${resetData.count} adet ilan sıfırlandı. İşlem başlıyor...`
-        );
+        toast.info(`${resetData.count} jobs reset. Process starting...`);
         setResetModalOpen(false);
 
         // Process after reset
         await handleProcessOnce();
       } catch (err) {
-        console.error('Reset hatası:', err);
-        toast.error(err.message || 'Sıfırlama işlemi başarısız.');
+        console.error('Reset error:', err);
+        toast.error(err.message || 'Reset failed.');
       }
     });
   };
@@ -207,12 +205,12 @@ export function LLMDashboardClient({
         setAutoProcessing(checked);
         toast.success(
           checked
-            ? 'Otomatik işleme açıldı. Eklenen ilanlar otomatik işlenecek.'
-            : 'Otomatik işleme kapatıldı. Manuel işleme aktif.'
+            ? 'Auto processing enabled. Added jobs will be processed automatically.'
+            : 'Auto processing disabled. Manual processing active.'
         );
       } catch (err) {
-        console.error('Toggle hatası:', err);
-        toast.error(err.message || 'Ayar güncellenirken hata oluştu.');
+        console.error('Toggle error:', err);
+        toast.error(err.message || 'Error updating settings.');
       }
     });
   };
@@ -225,13 +223,15 @@ export function LLMDashboardClient({
   return (
     <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">LLM İşleme Paneli</h1>
+        <h1 className="text-3xl font-bold tracking-tight">
+          LLM Processing Panel
+        </h1>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={fetchData} disabled={isLoading}>
             <RefreshCw
               className={`size-4 ${isRefreshing ? 'animate-spin' : ''}`}
             />
-            Yenile
+            Refresh
           </Button>
           <Button
             variant="secondary"
@@ -240,13 +240,13 @@ export function LLMDashboardClient({
             className="bg-orange-500/20 text-orange-400 hover:bg-orange-500/30"
           >
             <RotateCcw className="size-4" />
-            Zorla Tekrar İşle
+            Force Reprocess
           </Button>
-          {/* Otomatik işleme açıkken dropdown devre dışı */}
+          {/* Dropdown disabled when auto processing is on */}
           {autoProcessing ? (
             <Button disabled className="cursor-not-allowed opacity-50">
               <Zap className="size-4" />
-              Otomatik Mod Aktif
+              Auto Mode Active
             </Button>
           ) : (
             <DropdownMenu>
@@ -260,8 +260,8 @@ export function LLMDashboardClient({
                 >
                   <Zap className="size-4" />
                   {isProcessing || processingStatus.is_processing
-                    ? 'İşleniyor...'
-                    : 'Şimdi İşle'}
+                    ? 'Processing...'
+                    : 'Process Now'}
                   <ChevronDown className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -274,7 +274,7 @@ export function LLMDashboardClient({
                       onClick={() => handleProcessOnce(count)}
                       disabled={isProcessing}
                     >
-                      {count} Adet İşle
+                      Process {count}
                     </Button>
                   </DropdownMenuItem>
                 ))}
@@ -289,12 +289,12 @@ export function LLMDashboardClient({
         <CardContent className="flex items-center justify-between">
           <div className="space-y-1">
             <Label className="text-base font-semibold">
-              Otomatik İlan İşleme
+              Auto Job Processing
             </Label>
             <p className="text-sm text-muted-foreground">
               {autoProcessing
-                ? 'Eklenen ilanlar otomatik olarak LLM ile işlenir.'
-                : 'Manuel mod aktif. İlanları "Şimdi İşle" butonu ile işleyebilirsiniz.'}
+                ? 'Added jobs are automatically processed by LLM.'
+                : 'Manual mode active. You can process jobs with "Process Now" button.'}
             </p>
           </div>
           <Switch
@@ -315,9 +315,9 @@ export function LLMDashboardClient({
                 <Loader2 className="size-5 animate-spin text-blue-500" />
               </div>
               <div className="flex-1">
-                <p className="font-semibold text-blue-400">İşleniyor...</p>
+                <p className="font-semibold text-blue-400">Processing...</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  İlanlar işleniyor, lütfen bekleyin...
+                  Jobs are being processed, please wait...
                 </p>
               </div>
             </div>
@@ -342,7 +342,7 @@ export function LLMDashboardClient({
                       </span>
                       <span className="text-muted-foreground">
                         {' '}
-                        ilan bekliyor
+                        jobs pending
                       </span>
                     </span>
                   </div>
@@ -356,7 +356,7 @@ export function LLMDashboardClient({
                       </span>
                       <span className="text-muted-foreground">
                         {' '}
-                        ilan başarısız
+                        jobs failed
                       </span>
                     </span>
                   </div>
@@ -372,7 +372,7 @@ export function LLMDashboardClient({
           <Card>
             <CardContent>
               <p className="text-base font-semibold uppercase text-muted-foreground">
-                Toplam İlan
+                Total Jobs
               </p>
               <p className="mt-1 text-3xl font-bold">{status.total_postings}</p>
             </CardContent>
@@ -380,7 +380,7 @@ export function LLMDashboardClient({
           <Card>
             <CardContent>
               <p className="text-base font-semibold uppercase text-muted-foreground">
-                İşlenen
+                Processed
               </p>
               <p className="mt-1 text-3xl font-bold text-green-500">
                 {status.total_processed}
@@ -390,7 +390,7 @@ export function LLMDashboardClient({
           <Card>
             <CardContent>
               <p className="text-base font-semibold uppercase text-muted-foreground">
-                Bekleyen
+                Pending
               </p>
               <p className="mt-1 text-3xl font-bold text-orange-500">
                 {status.total_pending}
@@ -406,18 +406,18 @@ export function LLMDashboardClient({
           <Card className="border-blue-500/30 bg-blue-500/5">
             <CardContent>
               <p className="text-sm font-semibold uppercase text-blue-400">
-                Bugün
+                Today
               </p>
               <p className="mt-1 text-2xl font-bold">
-                {status.stats.today.count} işlem
+                {status.stats.today.count} processed
               </p>
               <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
                 <span>
-                  Ort: {(status.stats.today.avgDuration / 1000).toFixed(1)}s
+                  Avg: {(status.stats.today.avgDuration / 1000).toFixed(1)}s
                 </span>
                 {status.stats.today.errorCount > 0 && (
                   <span className="text-red-400">
-                    {status.stats.today.errorCount} hata
+                    {status.stats.today.errorCount} errors
                   </span>
                 )}
               </div>
@@ -426,18 +426,18 @@ export function LLMDashboardClient({
           <Card className="border-purple-500/30 bg-purple-500/5">
             <CardContent>
               <p className="text-sm font-semibold uppercase text-purple-400">
-                Bu Hafta
+                This Week
               </p>
               <p className="mt-1 text-2xl font-bold">
-                {status.stats.week.count} işlem
+                {status.stats.week.count} processed
               </p>
               <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
                 <span>
-                  Ort: {(status.stats.week.avgDuration / 1000).toFixed(1)}s
+                  Avg: {(status.stats.week.avgDuration / 1000).toFixed(1)}s
                 </span>
                 {status.stats.week.errorCount > 0 && (
                   <span className="text-red-400">
-                    {status.stats.week.errorCount} hata
+                    {status.stats.week.errorCount} errors
                   </span>
                 )}
               </div>
@@ -446,18 +446,18 @@ export function LLMDashboardClient({
           <Card className="border-emerald-500/30 bg-emerald-500/5">
             <CardContent>
               <p className="text-sm font-semibold uppercase text-emerald-400">
-                Toplam
+                Total
               </p>
               <p className="mt-1 text-2xl font-bold">
-                {status.stats.allTime.count} işlem
+                {status.stats.allTime.count} processed
               </p>
               <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
                 <span>
-                  Ort: {(status.stats.allTime.avgDuration / 1000).toFixed(1)}s
+                  Avg: {(status.stats.allTime.avgDuration / 1000).toFixed(1)}s
                 </span>
                 {status.stats.allTime.errorCount > 0 && (
                   <span className="text-red-400">
-                    {status.stats.allTime.errorCount} hata
+                    {status.stats.allTime.errorCount} errors
                   </span>
                 )}
               </div>
@@ -467,16 +467,16 @@ export function LLMDashboardClient({
       )}
 
       {/* Logs Table */}
-      <h2 className="mb-4 text-xl font-semibold">Son İşlemler</h2>
+      <h2 className="mb-4 text-xl font-semibold">Recent Processes</h2>
       <div className="rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Tarih</TableHead>
-              <TableHead>İlan</TableHead>
-              <TableHead>Şirket</TableHead>
-              <TableHead>Durum</TableHead>
-              <TableHead className="text-right">Süre</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Job</TableHead>
+              <TableHead>Company</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Duration</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -486,7 +486,7 @@ export function LLMDashboardClient({
                   colSpan={5}
                   className="py-8 text-center text-muted-foreground"
                 >
-                  Kayıt bulunamadı.
+                  No records found.
                 </TableCell>
               </TableRow>
             ) : (
@@ -514,11 +514,11 @@ export function LLMDashboardClient({
                         className="cursor-help"
                         title={log.message}
                       >
-                        Hata
+                        Error
                       </Badge>
                     ) : (
                       <Badge className="bg-green-600 hover:bg-green-600">
-                        Başarılı
+                        Success
                       </Badge>
                     )}
                   </TableCell>
@@ -538,16 +538,16 @@ export function LLMDashboardClient({
       <Dialog open={resetModalOpen} onOpenChange={setResetModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Zorla Tekrar İşle</DialogTitle>
+            <DialogTitle>Force Reprocess</DialogTitle>
             <DialogDescription className="space-y-2 pt-2">
               <p>
-                Bu işlem, veritabanındaki <strong>tüm ilanların</strong> işlenme
-                durumunu sıfırlayacak (Reset) ve ardından ilk 5 ilanı yeniden
-                işleyecektir.
+                This action will reset the processing status of{' '}
+                <strong>all jobs</strong> in the database and then reprocess the
+                first 5 jobs.
               </p>
               <p>
-                Eğer yeni bir LLM modeli veya prompt deniyorsanız bu işlemi
-                kullanabilirsiniz.
+                You can use this action if you are trying a new LLM model or
+                prompt.
               </p>
             </DialogDescription>
           </DialogHeader>
@@ -557,14 +557,14 @@ export function LLMDashboardClient({
               onClick={() => setResetModalOpen(false)}
               disabled={isResetting}
             >
-              İptal
+              Cancel
             </Button>
             <Button
               onClick={handleResetAndProcess}
               disabled={isResetting}
               className="bg-orange-500 hover:bg-orange-600"
             >
-              {isResetting ? 'İşleniyor...' : 'Onayla ve Başlat'}
+              {isResetting ? 'Processing...' : 'Confirm and Start'}
             </Button>
           </DialogFooter>
         </DialogContent>

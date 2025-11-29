@@ -1,10 +1,10 @@
 import { supabase } from './supabase';
 import { llmClient } from './llmClient';
 
-// Timeout süresi: 5 dakika (ms cinsinden)
+// Timeout duration: 5 minutes (in ms)
 const PROCESSING_TIMEOUT_MS = 5 * 60 * 1000;
 
-// LLM Status enum değerleri
+// LLM Status enum values
 export const LLM_STATUS = {
   PENDING: 'pending',
   PROCESSING: 'processing',
@@ -13,16 +13,16 @@ export const LLM_STATUS = {
 };
 
 /**
- * Belirli süre bekler
- * @param {number} ms - Milisaniye
+ * Waits for a specified duration
+ * @param {number} ms - Milliseconds
  */
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Retry ile job'ı çeker (race condition için)
+ * Fetches job with retry (for race condition)
  * @param {string} jobId - Job UUID
- * @param {number} maxRetries - Maksimum deneme sayısı
- * @param {number} delayMs - Denemeler arası bekleme süresi
+ * @param {number} maxRetries - Maximum number of retries
+ * @param {number} delayMs - Delay between retries
  */
 async function fetchJobWithRetry(jobId, maxRetries = 3, delayMs = 500) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -51,10 +51,10 @@ async function fetchJobWithRetry(jobId, maxRetries = 3, delayMs = 500) {
 }
 
 /**
- * Tek bir iş ilanını LLM ile işler (çakışma korumalı)
- * Extension'dan gelen kayıtlar için kullanılır
- * @param {string} jobId - İşlenecek ilanın UUID'si
- * @returns {Promise<Object>} İşlem sonucu
+ * Processes a single job posting with LLM (concurrency protected)
+ * Used for records coming from the extension
+ * @param {string} jobId - UUID of the job to process
+ * @returns {Promise<Object>} Process result
  */
 export async function processSingleJob(jobId) {
   const modelName = process.env.LLM_MODEL_NAME || 'gpt-4o-mini';
@@ -63,7 +63,7 @@ export async function processSingleJob(jobId) {
   console.log(`[ProcessSingleJob] Starting for job ID: ${jobId}`);
 
   try {
-    // 1. İlgili kaydı çek (retry ile - race condition için)
+    // 1. Fetch the record (with retry - for race condition)
     const { job, error: fetchError } = await fetchJobWithRetry(jobId);
 
     if (fetchError || !job) {
@@ -78,7 +78,7 @@ export async function processSingleJob(jobId) {
       };
     }
 
-    // Zaten işlenmişse atla (llm_status kontrolü)
+    // Skip if already processed (llm_status check)
     if (job.llm_status === LLM_STATUS.COMPLETED || job.llm_processed) {
       console.log(`[ProcessSingleJob] Job already processed: ${jobId}`);
       return {
@@ -88,7 +88,7 @@ export async function processSingleJob(jobId) {
       };
     }
 
-    // 2. Başka işlem tarafından işleniyor mu kontrol et (llm_status + timeout)
+    // 2. Check if being processed by another process (llm_status + timeout)
     const isBeingProcessed =
       job.llm_status === LLM_STATUS.PROCESSING &&
       job.llm_started_at &&
@@ -106,8 +106,8 @@ export async function processSingleJob(jobId) {
       };
     }
 
-    // 3. Atomik claim: llm_status'u 'processing' yap ve llm_started_at'ı güncelle
-    // NULL değerleri de kabul et (eski kayıtlar için)
+    // 3. Atomic claim: set llm_status to 'processing' and update llm_started_at
+    // Accept NULL values too (for old records)
     const { error: claimError } = await supabase
       .from('job_postings')
       .update({
@@ -127,7 +127,7 @@ export async function processSingleJob(jobId) {
       throw new Error('Failed to claim job');
     }
 
-    // 4. LLM Çağrısı (süre ölçümü ile)
+    // 4. LLM Call (with duration measurement)
     const startTime = Date.now();
     const extraction = await llmClient.parseJobPosting({
       platform_name: job.platform_name,
@@ -141,7 +141,7 @@ export async function processSingleJob(jobId) {
       `[ProcessSingleJob] Job: ${extraction.job_title} @ ${extraction.company_name}`
     );
 
-    // 5. DB Update (başarılı) - llm_status = 'completed'
+    // 5. DB Update (success) - llm_status = 'completed'
     const { error: updateError } = await supabase
       .from('job_postings')
       .update({
@@ -158,7 +158,7 @@ export async function processSingleJob(jobId) {
       throw updateError;
     }
 
-    // 6. Log kaydı
+    // 6. Log record
     await supabase.from('llm_logs').insert({
       job_posting_id: job.id,
       level: 'info',
@@ -180,7 +180,7 @@ export async function processSingleJob(jobId) {
   } catch (err) {
     console.error(`[ProcessSingleJob] Error processing job ${jobId}:`, err);
 
-    // Hata logu
+    // Error log
     await supabase.from('llm_logs').insert({
       job_posting_id: jobId,
       level: 'error',
@@ -188,7 +188,7 @@ export async function processSingleJob(jobId) {
       details: { error: err.message || String(err), trigger: 'extension' },
     });
 
-    // llm_status'u 'failed' yap ve kilidi kaldır
+    // Set llm_status to 'failed' and release lock
     await supabase
       .from('job_postings')
       .update({
@@ -207,8 +207,8 @@ export async function processSingleJob(jobId) {
 }
 
 /**
- * Otomatik işleme ayarını kontrol eder
- * @returns {Promise<boolean>} Otomatik işleme açık mı?
+ * Checks auto processing setting
+ * @returns {Promise<boolean>} Is auto processing enabled?
  */
 export async function isAutoProcessingEnabled() {
   try {
@@ -230,10 +230,10 @@ export async function isAutoProcessingEnabled() {
 }
 
 /**
- * Fire-and-forget wrapper - Promise'i await etmeden başlatır
- * Otomatik işleme ayarına göre çalışır
- * @param {string} jobId - İşlenecek ilanın UUID'si
- * @param {number} initialDelayMs - İlk bekleme süresi (INSERT'in tamamlanması için)
+ * Fire-and-forget wrapper - Starts without awaiting Promise
+ * Works according to auto processing setting
+ * @param {string} jobId - UUID of the job to process
+ * @param {number} initialDelayMs - Initial delay (for INSERT completion)
  */
 export function triggerProcessSingleJob(jobId, initialDelayMs = 300) {
   sleep(initialDelayMs)

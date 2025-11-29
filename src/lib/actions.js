@@ -19,14 +19,14 @@ export async function getJobPostings() {
 }
 
 /**
- * Pagination ve filtreleme destekli job postings çekme
- * @param {Object} options - Sorgu seçenekleri
- * @param {number} options.page - Sayfa numarası (1'den başlar)
- * @param {number} options.pageSize - Sayfa başına kayıt (20, 50, 100)
- * @param {string[]} options.platforms - Platform filtreleri
- * @param {string[]} options.llmStatuses - LLM durum filtreleri
- * @param {string} options.jobTitle - Job title arama
- * @param {string} options.company - Şirket arama
+ * Fetch job postings with pagination and filtering support
+ * @param {Object} options - Query options
+ * @param {number} options.page - Page number (starts from 1)
+ * @param {number} options.pageSize - Records per page (20, 50, 100)
+ * @param {string[]} options.platforms - Platform filters
+ * @param {string[]} options.llmStatuses - LLM status filters
+ * @param {string} options.jobTitle - Job title search
+ * @param {string} options.company - Company search
  */
 export async function getJobPostingsPaginated({
   page = 1,
@@ -36,17 +36,17 @@ export async function getJobPostingsPaginated({
   jobTitle = '',
   company = '',
 } = {}) {
-  // Sayfa boyutu validasyonu
+  // Page size validation
   const validPageSizes = [20, 50, 100];
   const validatedPageSize = validPageSizes.includes(pageSize) ? pageSize : 20;
 
-  // Offset hesapla
+  // Calculate offset
   const offset = (page - 1) * validatedPageSize;
 
   // Base query builder
   let query = supabase.from('job_postings').select('*', { count: 'exact' });
 
-  // Filtreleri uygula
+  // Apply filters
   if (platforms.length > 0) {
     query = query.in('platform_name', platforms);
   }
@@ -63,7 +63,7 @@ export async function getJobPostingsPaginated({
     query = query.ilike('company_name', `%${company.trim()}%`);
   }
 
-  // Sıralama ve pagination
+  // Sorting and pagination
   query = query
     .order('scraped_at', { ascending: false })
     .range(offset, offset + validatedPageSize - 1);
@@ -72,7 +72,7 @@ export async function getJobPostingsPaginated({
 
   if (error) throw new Error(error.message);
 
-  // Toplam sayfa sayısını hesapla
+  // Calculate total pages
   const totalPages = Math.ceil((count || 0) / validatedPageSize);
 
   return {
@@ -89,7 +89,7 @@ export async function getJobPostingsPaginated({
 }
 
 /**
- * Benzersiz platformları al (filtre dropdown için)
+ * Get unique platforms (for filter dropdown)
  */
 export async function getUniquePlatforms() {
   const { data, error } = await supabase
@@ -120,24 +120,24 @@ export async function createJobPosting(formData) {
       platform_name: formData.platform_name,
       raw_text: formData.raw_text,
       url: formData.url,
-      llm_status: 'pending', // Otomatik işleme için gerekli
+      llm_status: 'pending', // Required for auto processing
     })
     .select('id')
     .single();
 
   if (error) throw new Error(error.message);
 
-  // Asenkron olarak LLM işlemesini başlat (otomatik mod açıksa çalışır)
-  // Internal API endpoint kullanarak Vercel'de waitUntil desteği sağlıyoruz
+  // Asynchronously start LLM processing (runs if auto mode is enabled)
+  // Using Internal API endpoint to provide waitUntil support in Vercel
   if (data?.id) {
     try {
-      // Host bilgisini al
+      // Get host info
       const headersList = await headers();
       const host = headersList.get('host') || 'localhost:3000';
       const protocol = host.includes('localhost') ? 'http' : 'https';
       const baseUrl = `${protocol}://${host}`;
 
-      // Fire-and-forget: await etmiyoruz, sadece isteği başlatıyoruz
+      // Fire-and-forget: we don't await, just start the request
       fetch(`${baseUrl}/api/process-job`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -161,7 +161,7 @@ export async function updateJobPosting(id, formData) {
     url: formData.url,
   };
 
-  // llm_processed alanı varsa ekle
+  // Add llm_processed field if exists
   if (typeof formData.llm_processed === 'boolean') {
     updateData.llm_processed = formData.llm_processed;
   }
@@ -180,7 +180,7 @@ export async function updateJobPosting(id, formData) {
 }
 
 export async function deleteJobPosting(id) {
-  // 1. Önce silinecek kaydı al
+  // 1. First get the record to delete
   const { data: jobToDelete, error: fetchError } = await supabase
     .from('job_postings')
     .select('*')
@@ -191,7 +191,7 @@ export async function deleteJobPosting(id) {
     throw new Error(fetchError?.message || 'Job posting not found');
   }
 
-  // 2. Kaydı deleted_job_postings tablosuna taşı
+  // 2. Move record to deleted_job_postings table
   const { error: insertError } = await supabase
     .from('deleted_job_postings')
     .insert({
@@ -203,14 +203,14 @@ export async function deleteJobPosting(id) {
     throw new Error(`Failed to archive job posting: ${insertError.message}`);
   }
 
-  // 3. Orijinal tablodan sil
+  // 3. Delete from original table
   const { error: deleteError } = await supabase
     .from('job_postings')
     .delete()
     .eq('id', id);
 
   if (deleteError) {
-    // Rollback: deleted_job_postings'den de sil
+    // Rollback: delete from deleted_job_postings too
     await supabase.from('deleted_job_postings').delete().eq('id', id);
     throw new Error(`Failed to delete job posting: ${deleteError.message}`);
   }
@@ -253,21 +253,21 @@ export async function getLLMStatus() {
         LLM_STATUS.PROCESSING,
         LLM_STATUS.FAILED,
       ]),
-    // Bugünkü işlemler
+    // Today's transactions
     supabase
       .from('llm_logs')
       .select('duration_ms, level')
       .gte('created_at', todayStart),
-    // Bu haftaki işlemler
+    // This week's transactions
     supabase
       .from('llm_logs')
       .select('duration_ms, level')
       .gte('created_at', weekStart),
-    // Tüm zamanlar
+    // All time
     supabase.from('llm_logs').select('duration_ms, level'),
   ]);
 
-  // Aggregate hesaplamaları
+  // Aggregate calculations
   const calcStats = (logs) => {
     if (!logs || logs.length === 0)
       return { count: 0, avgDuration: 0, errorCount: 0 };
@@ -341,11 +341,11 @@ export async function resetLLMProcessing() {
 }
 
 /**
- * Aktif işleme durumunu döndürür (polling için)
- * @returns {Promise<Object>} İşleme durumu
+ * Returns active processing status (for polling)
+ * @returns {Promise<Object>} Processing status
  */
 export async function getProcessingStatus() {
-  // Şu an işlenen ilanları getir
+  // Get currently processing jobs
   const { data: processingJobs, error: processingError } = await supabase
     .from('job_postings')
     .select('id, job_title, company_name, platform_name, llm_started_at')
@@ -356,7 +356,7 @@ export async function getProcessingStatus() {
     console.error('Processing jobs fetch error:', processingError);
   }
 
-  // Bekleyen ilanların sayısını getir
+  // Get pending jobs count
   const { count: pendingCount, error: pendingError } = await supabase
     .from('job_postings')
     .select('*', { count: 'exact', head: true })
@@ -366,7 +366,7 @@ export async function getProcessingStatus() {
     console.error('Pending count fetch error:', pendingError);
   }
 
-  // Failed ilanların sayısını getir
+  // Get failed jobs count
   const { count: failedCount, error: failedError } = await supabase
     .from('job_postings')
     .select('*', { count: 'exact', head: true })
@@ -376,7 +376,7 @@ export async function getProcessingStatus() {
     console.error('Failed count fetch error:', failedError);
   }
 
-  // Tüm non-completed ilanların status bilgisini döndür (postings güncellemesi için)
+  // Return status info of all non-completed jobs (for postings update)
   const { data: statusUpdates, error: statusError } = await supabase
     .from('job_postings')
     .select('id, llm_status, llm_processed')
@@ -405,7 +405,7 @@ export async function getAppSettings() {
 
   if (error) {
     console.error('Failed to fetch app settings:', error);
-    // Varsayılan değer döndür
+    // Return default value
     return { auto_llm_processing: false };
   }
 
@@ -413,7 +413,7 @@ export async function getAppSettings() {
 }
 
 export async function updateAutoLLMProcessing(enabled) {
-  // Önce mevcut ayar kaydının id'sini al (singleton tablo)
+  // First get the id of the existing settings record (singleton table)
   const { data: existing, error: fetchError } = await supabase
     .from('app_settings')
     .select('id')
@@ -423,7 +423,7 @@ export async function updateAutoLLMProcessing(enabled) {
     throw new Error('Settings record not found');
   }
 
-  // Şimdi güncelle
+  // Now update
   const { data, error } = await supabase
     .from('app_settings')
     .update({ auto_llm_processing: enabled })

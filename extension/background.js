@@ -2,16 +2,16 @@
 // JPM Chrome Extension - Background Service Worker
 // ============================================================
 
-// Configuration - UPDATE THESE VALUES
+// Configuration - UPDATE THESE VALUES BEFORE INSTALLING
 const CONFIG = {
-  // Backend API endpoint (development)
-  // API_URL: 'http://localhost:3000/api/job-postings/from-extension',
-  // Production API URL
-  API_URL:
-    'https://job-postings-next.vercel.app/api/job-postings/from-extension',
+  // Backend API endpoint
+  // For local development: 'http://localhost:3000/api/job-postings/from-extension'
+  // For production: Your Vercel/deployed URL
+  API_URL: 'http://localhost:3000/api/job-postings/from-extension',
 
-  // Shared secret for authentication - MUST match EXTENSION_SHARED_SECRET env var
-  SHARED_SECRET: 'jpm-extension-secret-change-me-in-production',
+  // Shared secret for authentication - MUST match EXTENSION_SHARED_SECRET in your .env file
+  // Generate a secure random string and paste it here and in your .env file
+  SHARED_SECRET: 'change-me-to-your-secure-secret',
 };
 
 // ============================================================
@@ -229,7 +229,7 @@ function injectLoadingToast() {
       <div style="display: flex; flex-direction: column; gap: 2px;">
         <span style="font-weight: 600; color: #3b82f6;">JPM</span>
         <span style="color: rgba(255, 255, 255, 0.8); font-size: 13px;">
-          İlan kaydediliyor...
+          Saving job...
         </span>
       </div>
     </div>
@@ -312,11 +312,11 @@ function scrapeLinkedInJobPage() {
     job_title: null,
     company_name: null,
     location_text: null,
-    job_badges: [], // Maaş, Remote, Full-time gibi badge'ler
+    job_badges: [], // Badges like Salary, Remote, Full-time
     raw_text: null,
   };
 
-  // JPM toast'ı varsa kaldır (scraping'den önce temizlik)
+  // Remove JPM toast if exists (cleanup before scraping)
   const existingToast = document.getElementById('jpm-toast');
   if (existingToast) {
     existingToast.remove();
@@ -364,7 +364,7 @@ function scrapeLinkedInJobPage() {
   }
 
   // ---- Location ----
-  // LinkedIn'de location genelde tertiary-description-container içindeki ilk .tvm__text--low-emphasis span'da
+  // Location in LinkedIn is usually in the first .tvm__text--low-emphasis span within tertiary-description-container
   const locationSelectors = [
     '.job-details-jobs-unified-top-card__tertiary-description-container .tvm__text--low-emphasis:first-of-type',
     '.job-details-jobs-unified-top-card__tertiary-description-container > span > .tvm__text:first-child',
@@ -380,7 +380,7 @@ function scrapeLinkedInJobPage() {
     const el = document.querySelector(selector);
     if (el && el.textContent.trim()) {
       const text = el.textContent.trim().replace(/\s+/g, ' ');
-      // "· " ile başlamıyorsa ve anlamlı bir lokasyon ise al
+      // Take if it doesn't start with "· " and is a meaningful location
       if (text && !text.startsWith('·') && text.length > 2) {
         data.location_text = text;
         break;
@@ -397,15 +397,15 @@ function scrapeLinkedInJobPage() {
   for (const containerSelector of badgeContainerSelectors) {
     const container = document.querySelector(containerSelector);
     if (container) {
-      // Her bir buton/badge'i bul
+      // Find each button/badge
       const buttons = container.querySelectorAll('button');
       buttons.forEach((btn) => {
-        // strong içindeki text'i al, ikon ve gizli metinleri temizle
+        // Get text inside strong, clean icons and hidden text
         const strongEl = btn.querySelector('strong');
         if (strongEl) {
-          // innerText ile sadece görünür metni al, ikon karakterlerini temizle
+          // Get only visible text with innerText, clean icon characters
           let text = strongEl.innerText.trim().replace(/\s+/g, ' ');
-          // Check mark ve benzeri karakterleri temizle
+          // Clean check mark and similar characters
           text = text.replace(/^[\s✓✔]+/, '').trim();
           if (text && text.length > 0) {
             data.job_badges.push(text);
@@ -436,7 +436,7 @@ function scrapeLinkedInJobPage() {
     }
   }
 
-  // Fallback - sadece job-details main content'ten al, tüm body'den değil
+  // Fallback - get only from job-details main content, not from the entire body
   if (!data.raw_text) {
     const mainContent =
       document.querySelector('.jobs-details__main-content') ||
@@ -460,35 +460,35 @@ function scrapeLinkedInJobPage() {
  * @returns {Object} { valid: boolean, message: string, reason: string }
  */
 function validateScrapedData(data) {
-  // 1. Job title kontrolü - mutlaka olmalı
+  // 1. Job title check - must exist
   if (!data.job_title || data.job_title.trim() === '') {
     return {
       valid: false,
-      message: 'İş başlığı bulunamadı. Sayfa tam yüklendi mi?',
+      message: 'Job title not found. Is the page fully loaded?',
       reason: 'missing_job_title',
     };
   }
 
-  // 2. Raw text kontrolü - boş olmamalı
+  // 2. Raw text check - must not be empty
   if (!data.raw_text || data.raw_text.trim() === '') {
     return {
       valid: false,
-      message: 'İlan içeriği bulunamadı.',
+      message: 'Job content not found.',
       reason: 'missing_raw_text',
     };
   }
 
-  // 3. Raw text minimum uzunluk kontrolü
+  // 3. Raw text minimum length check
   const rawTextLength = data.raw_text.trim().length;
   if (rawTextLength < 200) {
     return {
       valid: false,
-      message: 'İlan içeriği çok kısa. Sayfa tam yüklendi mi?',
+      message: 'Job content is too short. Is the page fully loaded?',
       reason: 'raw_text_too_short',
     };
   }
 
-  // 4. Raw text anlamlı içerik kontrolü - iş ilanına özgü kelimeler içermeli
+  // 4. Raw text meaningful content check - must contain job-specific keywords
   const jobRelatedKeywords = [
     'about',
     'job',
@@ -500,11 +500,7 @@ function validateScrapedData(data) {
     'skills',
     'apply',
     'position',
-    'hakkında',
-    'gereksinimler',
-    'nitelikler',
-    'sorumluluklar',
-    'deneyim',
+    'position',
     'work',
     'team',
     'company',
@@ -518,15 +514,15 @@ function validateScrapedData(data) {
   if (!hasJobContent) {
     return {
       valid: false,
-      message: 'Geçerli iş ilanı içeriği bulunamadı. Sayfa tam yüklendi mi?',
+      message: 'Valid job content not found. Is the page fully loaded?',
       reason: 'no_job_content',
     };
   }
 
-  // 5. Bilinen hatalı içerik kontrolü (toast mesajları, notification sayıları vb.)
+  // 5. Known invalid content check (toast messages, notification counts, etc.)
   const invalidPatterns = [
     /^[\d\s]*notification/i,
-    /^İlan kaydediliyor/i,
+    /^Saving job/i,
     /^JPM/,
     /^loading/i,
   ];
@@ -537,7 +533,7 @@ function validateScrapedData(data) {
       return {
         valid: false,
         message:
-          'Sayfa içeriği düzgün okunamadı. Sayfayı yenileyip tekrar deneyin.',
+          'Page content could not be read properly. Refresh the page and try again.',
         reason: 'invalid_content_pattern',
       };
     }
@@ -557,28 +553,32 @@ function validateScrapedData(data) {
 async function handleActionClick(tab) {
   // 1. Verify we're on a LinkedIn job page
   if (!tab.url || !isLinkedInJobPage(tab.url)) {
-    await showFeedback(tab.id, 'Bu sayfa bir LinkedIn iş ilanı değil.', true);
+    await showFeedback(
+      tab.id,
+      'This page is not a LinkedIn job posting.',
+      true
+    );
     return;
   }
 
   try {
-    // 2. ÖNCE scraping yap (loading toast'tan ÖNCE - toast içeriği raw_text'e dahil olmasın)
+    // 2. Scrape FIRST (BEFORE loading toast - so toast content is not included in raw_text)
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: scrapeLinkedInJobPage,
     });
 
     if (!results || results.length === 0 || !results[0].result) {
-      await showFeedback(tab.id, 'Sayfa içeriği okunamadı.', true);
+      await showFeedback(tab.id, 'Page content could not be read.', true);
       return;
     }
 
     const scrapedData = results[0].result;
 
-    // Debug: Scrape edilen veriyi logla
+    // Debug: Log scraped data
     console.log('JPM Scraped Data:', scrapedData);
 
-    // 3. Validate scraped data - kritik alanlar eksikse işlemi durdur
+    // 3. Validate scraped data - stop process if critical fields are missing
     const validationResult = validateScrapedData(scrapedData);
     if (!validationResult.valid) {
       console.error(
@@ -590,7 +590,7 @@ async function handleActionClick(tab) {
       return;
     }
 
-    // ŞIMDI loading toast göster (validasyon geçtikten sonra)
+    // NOW show loading toast (after validation passes)
     await showLoading(tab.id);
 
     // 4. Send data to the backend
@@ -609,26 +609,22 @@ async function handleActionClick(tab) {
     if (response.ok && responseData.success) {
       const title = scrapedData.job_title
         ? scrapedData.job_title.substring(0, 40)
-        : 'İlan';
-      await showFeedback(tab.id, `"${title}" kaydedildi!`);
+        : 'Job';
+      await showFeedback(tab.id, `"${title}" saved!`);
     } else if (response.status === 409 && responseData.duplicate) {
-      await showFeedback(tab.id, 'Bu ilan zaten kayıtlı.', true);
+      await showFeedback(tab.id, 'This job is already saved.', true);
     } else if (response.status === 401) {
-      await showFeedback(
-        tab.id,
-        'Yetkilendirme hatası. Token kontrol edin.',
-        true
-      );
+      await showFeedback(tab.id, 'Authorization error. Check token.', true);
       console.error('JPM Auth Error:', responseData);
     } else {
-      await showFeedback(tab.id, responseData.error || 'Bilinmeyen hata', true);
+      await showFeedback(tab.id, responseData.error || 'Unknown error', true);
       console.error('JPM Error:', responseData);
     }
   } catch (error) {
     console.error('JPM Extension Error:', error);
 
     if (error.message.includes('fetch')) {
-      await showFeedback(tab.id, "Backend'e bağlanılamadı.", true);
+      await showFeedback(tab.id, 'Could not connect to backend.', true);
     } else {
       await showFeedback(tab.id, error.message, true);
     }

@@ -5,29 +5,29 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
 
-    // Pagination parametreleri
+    // Pagination parameters
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = parseInt(searchParams.get('pageSize') || '20', 10);
 
-    // Filtre parametreleri
-    const platforms = searchParams.get('platform')?.split(',').filter(Boolean) || [];
-    const llmStatuses = searchParams.get('llm_status')?.split(',').filter(Boolean) || [];
+    // Filter parameters
+    const platforms =
+      searchParams.get('platform')?.split(',').filter(Boolean) || [];
+    const llmStatuses =
+      searchParams.get('llm_status')?.split(',').filter(Boolean) || [];
     const jobTitle = searchParams.get('job_title') || '';
     const company = searchParams.get('company') || '';
 
-    // Sayfa boyutu validasyonu
+    // Page size validation
     const validPageSizes = [20, 50, 100];
     const validatedPageSize = validPageSizes.includes(pageSize) ? pageSize : 20;
 
-    // Offset hesapla
+    // Calculate offset
     const offset = (page - 1) * validatedPageSize;
 
     // Base query builder
-    let query = supabase
-      .from('job_postings')
-      .select('*', { count: 'exact' });
+    let query = supabase.from('job_postings').select('*', { count: 'exact' });
 
-    // Filtreleri uygula
+    // Apply filters
     if (platforms.length > 0) {
       query = query.in('platform_name', platforms);
     }
@@ -44,7 +44,7 @@ export async function GET(request) {
       query = query.ilike('company_name', `%${company.trim()}%`);
     }
 
-    // Sıralama ve pagination
+    // Sorting and pagination
     query = query
       .order('scraped_at', { ascending: false })
       .range(offset, offset + validatedPageSize - 1);
@@ -53,21 +53,20 @@ export async function GET(request) {
 
     if (error) {
       console.error('Supabase error:', error);
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Benzersiz platformları al (filtre dropdown için)
+    // Get unique platforms (for filter dropdown)
     const { data: allPlatforms } = await supabase
       .from('job_postings')
       .select('platform_name')
       .not('platform_name', 'is', null);
 
-    const uniquePlatforms = [...new Set(allPlatforms?.map(p => p.platform_name) || [])].sort();
+    const uniquePlatforms = [
+      ...new Set(allPlatforms?.map((p) => p.platform_name) || []),
+    ].sort();
 
-    // Toplam sayfa sayısını hesapla
+    // Calculate total pages
     const totalPages = Math.ceil((count || 0) / validatedPageSize);
 
     return NextResponse.json({
@@ -90,4 +89,3 @@ export async function GET(request) {
     );
   }
 }
-

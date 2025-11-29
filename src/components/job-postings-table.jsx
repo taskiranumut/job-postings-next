@@ -83,7 +83,7 @@ import { deleteJobPosting } from '@/lib/actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import dayjs from 'dayjs';
 
-// Array karşılaştırma helper'ı (JSON.stringify'dan daha hızlı)
+// Array comparison helper (faster than JSON.stringify)
 function arraysEqual(a, b) {
   if (a.length !== b.length) return false;
   const sortedA = [...a].sort();
@@ -95,7 +95,7 @@ function PlatformLink({ url, platformName, className, badgeClassName }) {
   return (
     <a
       href={url}
-      className={`inline-flex items-center gap-1 hover:underline ${className}`}
+      className={`inline-flex items-start gap-1 hover:underline ${className}`}
       title={url}
     >
       <Badge variant="secondary" className={badgeClassName}>
@@ -123,7 +123,7 @@ const MultiSelect = memo(function MultiSelect({
             {hasSelection
               ? selectedLabel
                 ? selectedLabel(selected)
-                : `${selected.length} seçili`
+                : `${selected.length} selected`
               : placeholder}
           </span>
           <ChevronDown className="size-4 shrink-0 opacity-50" />
@@ -158,7 +158,7 @@ const MultiSelect = memo(function MultiSelect({
             onClick={() => onChange([])}
           >
             <X className="size-3" />
-            Temizle
+            Clear
           </Button>
         )}
       </PopoverContent>
@@ -167,10 +167,10 @@ const MultiSelect = memo(function MultiSelect({
 });
 
 const LLM_STATUS_OPTIONS = [
-  { value: 'completed', label: 'Tamamlandı' },
-  { value: 'processing', label: 'İşleniyor' },
-  { value: 'pending', label: 'Bekliyor' },
-  { value: 'failed', label: 'Başarısız' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'processing', label: 'Processing' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'failed', label: 'Failed' },
 ];
 
 const PAGE_SIZE_OPTIONS = [
@@ -179,8 +179,8 @@ const PAGE_SIZE_OPTIONS = [
   { value: 100, label: '100' },
 ];
 
-// FilterBar kendi içinde local state tutar - parent'ı gereksiz render etmez
-// key prop ile reset edildiğinde tamamen yeniden oluşturulur
+// FilterBar keeps local state internally - prevents unnecessary parent re-renders
+// completely recreated when reset with key prop
 const FilterBar = memo(function FilterBar({
   platforms,
   initialPlatforms,
@@ -191,14 +191,14 @@ const FilterBar = memo(function FilterBar({
   onClearAll,
   hasActiveFilters,
 }) {
-  // Local state - bu değişiklikler parent'ı etkilemez
-  // Initial değerler key ile reset edilerek güncellenir
+  // Local state - these changes do not affect parent
+  // Initial values are updated by resetting with key
   const [localPlatforms, setLocalPlatforms] = useState(initialPlatforms);
   const [localLlmStatus, setLocalLlmStatus] = useState(initialLlmStatus);
   const [localJobTitle, setLocalJobTitle] = useState(initialJobTitle);
   const [localCompany, setLocalCompany] = useState(initialCompany);
 
-  // isDirty hesaplama - artık local state ile
+  // isDirty calculation - now with local state
   const isDirty = useMemo(() => {
     return (
       !arraysEqual(localPlatforms, initialPlatforms) ||
@@ -249,32 +249,32 @@ const FilterBar = memo(function FilterBar({
   );
 
   const llmStatusLabel = useCallback((s) => {
-    if (s.length === 4) return 'Tümü';
+    if (s.length === 4) return 'All';
     if (s.length === 1) {
       const statusMap = {
-        completed: 'Tamamlandı',
-        processing: 'İşleniyor',
-        pending: 'Bekliyor',
-        failed: 'Başarısız',
+        completed: 'Completed',
+        processing: 'Processing',
+        pending: 'Pending',
+        failed: 'Failed',
       };
       return statusMap[s[0]] || s[0];
     }
-    return `${s.length} durum`;
+    return `${s.length} statuses`;
   }, []);
 
-  const platformLabel = useCallback((s) => `${s.length} platform`, []);
+  const platformLabel = useCallback((s) => `${s.length} platforms`, []);
 
   return (
     <div className="flex flex-wrap items-end gap-3">
       <div className="w-full min-w-[140px] sm:w-auto">
         <Label className="mb-1.5 block text-xs text-muted-foreground">
-          LLM Durumu
+          LLM Status
         </Label>
         <MultiSelect
           options={LLM_STATUS_OPTIONS}
           selected={localLlmStatus}
           onChange={setLocalLlmStatus}
-          placeholder="Durum seçin"
+          placeholder="Select status"
           selectedLabel={llmStatusLabel}
         />
       </div>
@@ -286,7 +286,7 @@ const FilterBar = memo(function FilterBar({
           options={platformOptions}
           selected={localPlatforms}
           onChange={setLocalPlatforms}
-          placeholder="Platform seçin"
+          placeholder="Select platform"
           selectedLabel={platformLabel}
         />
       </div>
@@ -295,7 +295,7 @@ const FilterBar = memo(function FilterBar({
           Job Title
         </Label>
         <Input
-          placeholder="Ara..."
+          placeholder="Search..."
           value={localJobTitle}
           onChange={(e) => setLocalJobTitle(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -307,7 +307,7 @@ const FilterBar = memo(function FilterBar({
           Company
         </Label>
         <Input
-          placeholder="Ara..."
+          placeholder="Search..."
           value={localCompany}
           onChange={(e) => setLocalCompany(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -321,13 +321,13 @@ const FilterBar = memo(function FilterBar({
           disabled={!isDirty}
         >
           <Search className="size-4" />
-          Filtrele
+          Filter
         </Button>
         <Button
           variant="ghost"
           onClick={handleClear}
           className="h-9 text-muted-foreground"
-          title="Filtreleri temizle"
+          title="Clear filters"
           disabled={!hasActiveFilters}
         >
           <X className="size-5" />
@@ -350,25 +350,25 @@ const Pagination = memo(function Pagination({
   const startItem = (currentPage - 1) * pageSize + 1;
   const endItem = Math.min(currentPage * pageSize, totalCount);
 
-  // Sayfa numaralarını oluştur
+  // Generate page numbers
   const getPageNumbers = () => {
     const pages = [];
     const maxVisiblePages = 5;
 
     if (totalPages <= maxVisiblePages) {
-      // Tüm sayfaları göster
+      // Show all pages
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i);
       }
     } else {
-      // İlk sayfa
+      // First page
       pages.push(1);
 
       if (currentPage > 3) {
         pages.push('...');
       }
 
-      // Ortadaki sayfalar
+      // Middle pages
       const start = Math.max(2, currentPage - 1);
       const end = Math.min(totalPages - 1, currentPage + 1);
 
@@ -382,7 +382,7 @@ const Pagination = memo(function Pagination({
         pages.push('...');
       }
 
-      // Son sayfa
+      // Last page
       if (!pages.includes(totalPages)) {
         pages.push(totalPages);
       }
@@ -397,7 +397,7 @@ const Pagination = memo(function Pagination({
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      {/* Sol taraf - Bilgi ve sayfa boyutu */}
+      {/* Left side - Info and page size */}
       <div className="flex flex-wrap items-center gap-4">
         <span className="text-sm text-muted-foreground">
           {totalCount > 0 ? (
@@ -406,14 +406,14 @@ const Pagination = memo(function Pagination({
                 {startItem}-{endItem}
               </span>
               {' / '}
-              <span className="font-medium">{totalCount}</span> kayıt
+              <span className="font-medium">{totalCount}</span> records
             </>
           ) : (
-            'Kayıt bulunamadı'
+            'No records found'
           )}
         </span>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Sayfa başına:</span>
+          <span className="text-sm text-muted-foreground">Per page:</span>
           <Select
             value={String(pageSize)}
             onValueChange={(value) => onPageSizeChange(Number(value))}
@@ -433,34 +433,32 @@ const Pagination = memo(function Pagination({
         </div>
       </div>
 
-      {/* Sağ taraf - Sayfa navigasyonu */}
+      {/* Right side - Page navigation */}
       {totalPages > 1 && (
         <div className="flex items-center gap-1">
-          {/* İlk sayfa */}
+          {/* First page */}
           <Button
             variant="outline"
             size="icon"
             className="size-8"
             onClick={() => onPageChange(1)}
             disabled={currentPage === 1 || isLoading}
-            title="İlk sayfa"
+            title="First page"
           >
             <ChevronsLeft className="size-4" />
           </Button>
-
-          {/* Önceki sayfa */}
+          {/* Previous page */}
           <Button
             variant="outline"
             size="icon"
             className="size-8"
             onClick={() => onPageChange(currentPage - 1)}
             disabled={currentPage === 1 || isLoading}
-            title="Önceki sayfa"
+            title="Previous page"
           >
             <ChevronLeft className="size-4" />
           </Button>
-
-          {/* Sayfa numaraları */}
+          {/* Page numbers */}
           <div className="hidden items-center gap-1 sm:flex">
             {getPageNumbers().map((pageNum, index) =>
               pageNum === '...' ? (
@@ -484,32 +482,29 @@ const Pagination = memo(function Pagination({
               )
             )}
           </div>
-
-          {/* Mobilde sayfa bilgisi */}
+          {/* Page info on mobile */}
           <span className="px-2 text-sm text-muted-foreground sm:hidden">
             {currentPage} / {totalPages}
           </span>
-
-          {/* Sonraki sayfa */}
+          {/* Next page */}
           <Button
             variant="outline"
             size="icon"
             className="size-8"
             onClick={() => onPageChange(currentPage + 1)}
             disabled={currentPage === totalPages || isLoading}
-            title="Sonraki sayfa"
+            title="Next page"
           >
             <ChevronRight className="size-4" />
           </Button>
-
-          {/* Son sayfa */}
+          {/* Last page */}
           <Button
             variant="outline"
             size="icon"
             className="size-8"
             onClick={() => onPageChange(totalPages)}
             disabled={currentPage === totalPages || isLoading}
-            title="Son sayfa"
+            title="Last page"
           >
             <ChevronsRight className="size-4" />
           </Button>
@@ -538,7 +533,7 @@ export function JobPostingsTable({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
 
-  // Local state for current filters (URL'den bağımsız, client-side yönetim)
+  // Local state for current filters (independent of URL, client-side management)
   const [currentFilters, setCurrentFilters] = useState(() => ({
     page: parseInt(searchParams.get('page') || '1', 10),
     pageSize: parseInt(searchParams.get('pageSize') || '20', 10),
@@ -549,7 +544,7 @@ export function JobPostingsTable({
     company: searchParams.get('company') || '',
   }));
 
-  // Polling interval (5 saniye)
+  // Polling interval (5 seconds)
   const AUTO_REFRESH_INTERVAL = 5000;
 
   // Memoized filter values
@@ -562,7 +557,7 @@ export function JobPostingsTable({
     company: appliedCompany,
   } = currentFilters;
 
-  // URL'i güncelle (server component tetiklemeden)
+  // Update URL (without triggering server component)
   const updateURLSilently = useCallback((filters) => {
     const params = new URLSearchParams();
 
@@ -580,11 +575,11 @@ export function JobPostingsTable({
     const queryString = params.toString();
     const newUrl = queryString ? `?${queryString}` : window.location.pathname;
 
-    // History API kullanarak URL'i güncelle - server component tetiklenmez
+    // Update URL using History API - server component is not triggered
     window.history.pushState({}, '', newUrl);
   }, []);
 
-  // Verileri API'den çek (sessiz mod: loading göstermez)
+  // Fetch data from API (silent mode: does not show loading)
   const fetchData = useCallback(
     async (params = {}, options = { silent: false }) => {
       if (!options.silent) {
@@ -618,11 +613,11 @@ export function JobPostingsTable({
             setPlatforms(result.platforms);
           }
         } else {
-          toast.error('Veri yüklenirken hata oluştu');
+          toast.error('Error loading data');
         }
       } catch (error) {
         console.error('Fetch error:', error);
-        toast.error('Veri yüklenirken hata oluştu');
+        toast.error('Error loading data');
       } finally {
         if (!options.silent) {
           setIsLoading(false);
@@ -633,27 +628,25 @@ export function JobPostingsTable({
     []
   );
 
-  // Tabloyu yenile (sessiz - sadece ikon döner)
+  // Refresh table (silent - only icon spins)
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
     fetchData(currentFilters, { silent: true });
-    toast.success('Tablo yenilendi');
+    toast.success('Table refreshed');
   }, [fetchData, currentFilters]);
 
-  // Otomatik yenileme toggle
+  // Auto refresh toggle
   const toggleAutoRefresh = useCallback(() => {
     const newValue = !autoRefresh;
     setAutoRefresh(newValue);
     if (newValue) {
-      toast.success(
-        `Otomatik yenileme aktif (${AUTO_REFRESH_INTERVAL / 1000} sn)`
-      );
+      toast.success(`Auto refresh active (${AUTO_REFRESH_INTERVAL / 1000}s)`);
     } else {
-      toast.info('Otomatik yenileme durduruldu');
+      toast.info('Auto refresh stopped');
     }
   }, [autoRefresh]);
 
-  // Polling mekanizması (sessiz yenileme)
+  // Polling mechanism (silent refresh)
   useEffect(() => {
     if (!autoRefresh) return;
 
@@ -664,7 +657,7 @@ export function JobPostingsTable({
     return () => clearInterval(intervalId);
   }, [autoRefresh, fetchData, currentFilters]);
 
-  // Filtreleri güncelle ve veri çek
+  // Update filters and fetch data
   const updateFiltersAndFetch = useCallback(
     (updates) => {
       const newFilters = {
@@ -676,13 +669,13 @@ export function JobPostingsTable({
         company: updates.company ?? appliedCompany,
       };
 
-      // State'i güncelle
+      // Update state
       setCurrentFilters(newFilters);
 
-      // URL'i sessizce güncelle
+      // Update URL silently
       updateURLSilently(newFilters);
 
-      // Veriyi çek
+      // Fetch data
       fetchData(newFilters);
     },
     [
@@ -697,7 +690,7 @@ export function JobPostingsTable({
     ]
   );
 
-  // Sayfa değiştir
+  // Change page
   const handlePageChange = useCallback(
     (newPage) => {
       updateFiltersAndFetch({ page: newPage });
@@ -705,19 +698,19 @@ export function JobPostingsTable({
     [updateFiltersAndFetch]
   );
 
-  // Sayfa boyutu değiştir
+  // Change page size
   const handlePageSizeChange = useCallback(
     (newPageSize) => {
-      // Sayfa boyutu değiştiğinde ilk sayfaya dön
+      // Return to first page when page size changes
       updateFiltersAndFetch({ page: 1, pageSize: newPageSize });
     },
     [updateFiltersAndFetch]
   );
 
-  // Filtreleri uygula (submit)
+  // Apply filters (submit)
   const submitFilters = useCallback(
     ({ platforms, llmStatus, jobTitle, company }) => {
-      // Filtre değiştiğinde ilk sayfaya dön
+      // Return to first page when filter changes
       updateFiltersAndFetch({
         page: 1,
         platforms,
@@ -751,7 +744,7 @@ export function JobPostingsTable({
     });
   }, [updateFiltersAndFetch]);
 
-  // FilterBar için key - URL değiştiğinde component resetlenir
+  // Key for FilterBar - component resets when URL changes
   const filterBarKey = useMemo(
     () =>
       `${appliedPlatforms.join(',')}-${appliedLlmStatus.join(
@@ -796,24 +789,24 @@ export function JobPostingsTable({
     startTransition(async () => {
       try {
         await deleteJobPosting(idToDelete);
-        toast.success('İlan başarıyla silindi.');
-        // Silme sonrası tabloyu sessizce yenile
+        toast.success('Job deleted successfully.');
+        // Silently refresh table after deletion
         fetchData(currentFilters, { silent: true });
       } catch (err) {
-        console.error('Silme hatası:', err);
-        toast.error('Silme işlemi başarısız oldu.');
+        console.error('Deletion error:', err);
+        toast.error('Deletion failed.');
       } finally {
         setDeleteModalOpen(false);
       }
     });
   }, [selectedPostingId, fetchData, currentFilters]);
 
-  // Boş durum kontrolü (filtresiz ve veri yoksa)
+  // Empty state check (if no filters and no data)
   if (!isLoading && postings.length === 0 && !hasActiveFilters) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
         <Bot className="mb-4 size-12 opacity-50" />
-        <p>Henüz hiç ilan eklenmemiş.</p>
+        <p>No jobs added yet.</p>
       </div>
     );
   }
@@ -822,10 +815,10 @@ export function JobPostingsTable({
     <>
       {/* Header with Filters */}
       <div className="mb-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              İş İlanları
+              Job Postings
             </h1>
             <Badge variant="secondary" className="text-xs">
               {pagination.totalCount}
@@ -835,7 +828,7 @@ export function JobPostingsTable({
               size="sm"
               onClick={handleRefresh}
               disabled={isRefreshing || autoRefresh}
-              title="Tabloyu yenile"
+              title="Refresh table"
             >
               <RefreshCw
                 className={`size-4 ${isRefreshing ? 'animate-spin' : ''}`}
@@ -845,11 +838,7 @@ export function JobPostingsTable({
               variant={autoRefresh ? 'secondary' : 'ghost'}
               size="sm"
               onClick={toggleAutoRefresh}
-              title={
-                autoRefresh
-                  ? 'Otomatik yenilemeyi durdur'
-                  : 'Otomatik yenilemeyi başlat'
-              }
+              title={autoRefresh ? 'Stop auto refresh' : 'Start auto refresh'}
               className={
                 autoRefresh
                   ? 'bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50'
@@ -879,7 +868,7 @@ export function JobPostingsTable({
                 <Button variant="outline" className="w-full justify-between">
                   <span className="flex items-center gap-2">
                     <Filter className="size-4" />
-                    Filtreler
+                    Filters
                     {activeFilterCount > 0 && (
                       <Badge variant="secondary" className="ml-1">
                         {activeFilterCount}
@@ -921,9 +910,9 @@ export function JobPostingsTable({
       {!isLoading && postings.length === 0 && hasActiveFilters && (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <Filter className="mb-4 size-12 opacity-50" />
-          <p>Filtrelere uygun ilan bulunamadı.</p>
+          <p>No jobs found matching filters.</p>
           <Button variant="link" onClick={clearAllFilters} className="mt-2">
-            Filtreleri temizle
+            Clear filters
           </Button>
         </div>
       )}
@@ -939,7 +928,7 @@ export function JobPostingsTable({
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[140px] font-bold">
-                  Eklenme Tarihi
+                  Date Added
                 </TableHead>
                 <TableHead className="w-[80px] text-center font-bold">
                   LLM
@@ -952,7 +941,7 @@ export function JobPostingsTable({
                 <TableHead className="max-w-[200px] font-bold">
                   Company
                 </TableHead>
-                <TableHead className="w-[120px] font-bold">İşlemler</TableHead>
+                <TableHead className="w-[120px] font-bold">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -974,7 +963,7 @@ export function JobPostingsTable({
                           return (
                             <div
                               className="flex items-center justify-center gap-1"
-                              title="Tamamlandı"
+                              title="Completed"
                             >
                               <CheckCircle2 className="size-4 text-green-500" />
                             </div>
@@ -983,7 +972,7 @@ export function JobPostingsTable({
                           return (
                             <div
                               className="flex items-center justify-center gap-1"
-                              title="İşleniyor"
+                              title="Processing"
                             >
                               <Loader2 className="size-4 animate-spin text-blue-500" />
                             </div>
@@ -992,7 +981,7 @@ export function JobPostingsTable({
                           return (
                             <div
                               className="flex items-center justify-center gap-1"
-                              title="Başarısız"
+                              title="Failed"
                             >
                               <AlertCircle className="size-4 text-red-500" />
                             </div>
@@ -1002,7 +991,7 @@ export function JobPostingsTable({
                           return (
                             <div
                               className="flex items-center justify-center gap-1"
-                              title="Bekliyor"
+                              title="Pending"
                             >
                               <Clock className="size-4 text-amber-500" />
                             </div>
@@ -1014,7 +1003,7 @@ export function JobPostingsTable({
                     <PlatformLink
                       url={posting.url}
                       platformName={posting.platform_name}
-                      className="text-base px-4 text-muted-foreground hover:text-foreground"
+                      className="text-base text-muted-foreground hover:text-foreground"
                     />
                   </TableCell>
                   <TableCell>
@@ -1035,7 +1024,7 @@ export function JobPostingsTable({
                         size="icon-sm"
                         asChild
                         disabled={!posting.llm_processed}
-                        title="Görüntüle"
+                        title="View"
                       >
                         <Link
                           href={`/view/${posting.id}`}
@@ -1052,7 +1041,7 @@ export function JobPostingsTable({
                         variant="ghost"
                         size="icon-sm"
                         asChild
-                        title="Düzenle"
+                        title="Edit"
                       >
                         <Link href={`/edit/${posting.id}`}>
                           <Pencil className="size-4" />
@@ -1062,7 +1051,7 @@ export function JobPostingsTable({
                         variant="ghost"
                         size="icon-sm"
                         onClick={() => openDeleteModal(posting.id)}
-                        title="Sil"
+                        title="Delete"
                       >
                         <Trash2 className="size-4 text-destructive" />
                       </Button>
@@ -1088,10 +1077,10 @@ export function JobPostingsTable({
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
                     <CardTitle className="text-base">
-                      {posting.job_title || 'Başlıksız İlan'}
+                      {posting.job_title || 'Untitled Job'}
                     </CardTitle>
                     <CardDescription>
-                      {posting.company_name || 'Şirket Belirtilmemiş'}
+                      {posting.company_name || 'Company Not Specified'}
                     </CardDescription>
                   </div>
                   {(() => {
@@ -1104,21 +1093,21 @@ export function JobPostingsTable({
                         return (
                           <CheckCircle2
                             className="size-5 text-green-500"
-                            title="Tamamlandı"
+                            title="Completed"
                           />
                         );
                       case 'processing':
                         return (
                           <Loader2
                             className="size-5 animate-spin text-blue-500"
-                            title="İşleniyor"
+                            title="Processing"
                           />
                         );
                       case 'failed':
                         return (
                           <AlertCircle
                             className="size-5 text-red-500"
-                            title="Başarısız"
+                            title="Failed"
                           />
                         );
                       case 'pending':
@@ -1126,7 +1115,7 @@ export function JobPostingsTable({
                         return (
                           <Clock
                             className="size-5 text-amber-500"
-                            title="Bekliyor"
+                            title="Pending"
                           />
                         );
                     }
@@ -1144,7 +1133,7 @@ export function JobPostingsTable({
                     />
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Tarih:</span>
+                    <span className="text-muted-foreground">Date:</span>
                     <span>
                       {posting.scraped_at
                         ? dayjs(posting.scraped_at).format('DD/MM/YY HH:mm')
@@ -1173,13 +1162,13 @@ export function JobPostingsTable({
                     }
                   >
                     <Eye className="size-4" />
-                    Görüntüle
+                    View
                   </Link>
                 </Button>
                 <Button variant="outline" asChild>
                   <Link href={`/edit/${posting.id}`}>
                     <Pencil className="size-4" />
-                    Düzenle
+                    Edit
                   </Link>
                 </Button>
                 <Button
@@ -1187,7 +1176,7 @@ export function JobPostingsTable({
                   onClick={() => openDeleteModal(posting.id)}
                 >
                   <Trash2 className="size-4" />
-                  Sil
+                  Delete
                 </Button>
               </CardFooter>
             </Card>
@@ -1219,9 +1208,10 @@ export function JobPostingsTable({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>İlanı Sil</DialogTitle>
+            <DialogTitle>Delete Job</DialogTitle>
             <DialogDescription>
-              Bu ilanı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+              Are you sure you want to delete this job? This action cannot be
+              undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -1230,14 +1220,14 @@ export function JobPostingsTable({
               onClick={() => setDeleteModalOpen(false)}
               disabled={isPending}
             >
-              İptal
+              Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={handleDelete}
               disabled={isPending}
             >
-              {isPending ? 'Siliniyor...' : 'Sil'}
+              {isPending ? 'Deleting...' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>

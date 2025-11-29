@@ -32,7 +32,7 @@ export async function POST(request) {
 
     console.log(`[ProcessJob API] Starting processing for job: ${jobId}`);
 
-    // waitUntil: Response hemen döner, işlem arka planda devam eder
+    // waitUntil: Response returns immediately, process continues in background
     waitUntil(
       processSingleJob(jobId).catch((err) => {
         console.error(

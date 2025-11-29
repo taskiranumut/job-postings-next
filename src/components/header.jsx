@@ -34,7 +34,7 @@ export function Header() {
             className="flex items-center gap-2 text-base font-medium text-muted-foreground transition-colors hover:text-primary"
           >
             <ClipboardList className="size-6 sm:size-4" />
-            <span className="hidden sm:inline-block">İlanlar</span>
+            <span className="hidden sm:inline-block">Jobs</span>
           </Link>
           <Link
             href="/llm-dashboard"
@@ -49,7 +49,7 @@ export function Header() {
             className="flex items-center gap-2 text-base font-medium text-muted-foreground transition-colors hover:text-primary"
           >
             <PlusCircle className="size-6 sm:size-4" />
-            <span className="hidden sm:inline-block">İlan Ekle</span>
+            <span className="hidden sm:inline-block">Add Job</span>
           </Link>
         </nav>
       </div>

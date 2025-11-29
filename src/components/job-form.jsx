@@ -79,15 +79,15 @@ export function JobForm({ posting, mode = 'create' }) {
 
     // Validation
     if (!formData.platform_name) {
-      toast.error('Platform seçimi zorunludur.');
+      toast.error('Platform selection is required.');
       return;
     }
     if (!formData.url) {
-      toast.error('URL zorunludur.');
+      toast.error('URL is required.');
       return;
     }
     if (!formData.raw_text) {
-      toast.error('İlan metni zorunludur.');
+      toast.error('Job description is required.');
       return;
     }
 
@@ -95,10 +95,10 @@ export function JobForm({ posting, mode = 'create' }) {
       try {
         if (isEdit) {
           await updateJobPosting(posting.id, formData);
-          toast.success('İlan başarıyla güncellendi.');
+          toast.success('Job updated successfully.');
         } else {
           await createJobPosting(formData);
-          toast.success('İlan başarıyla kaydedildi.');
+          toast.success('Job saved successfully.');
           // Reset form for create mode
           setFormData({
             platform_name: 'linkedin',
@@ -108,8 +108,8 @@ export function JobForm({ posting, mode = 'create' }) {
           });
         }
       } catch (err) {
-        console.error('Hata:', err);
-        toast.error(err.message || 'Bir hata oluştu.');
+        console.error('Error:', err);
+        toast.error(err.message || 'An error occurred.');
       }
     });
   };
@@ -124,7 +124,7 @@ export function JobForm({ posting, mode = 'create' }) {
             onValueChange={(value) => handleChange('platform_name', value)}
           >
             <SelectTrigger id="platform" className="w-full">
-              <SelectValue placeholder="Platform seçiniz" />
+              <SelectValue placeholder="Select platform" />
             </SelectTrigger>
             <SelectContent>
               {PLATFORMS.map((platform) => (
@@ -151,7 +151,7 @@ export function JobForm({ posting, mode = 'create' }) {
           <Label htmlFor="raw_text">Raw Text</Label>
           <Textarea
             id="raw_text"
-            placeholder="İlan metnini buraya yapıştırın"
+            placeholder="Paste job description here"
             value={formData.raw_text}
             onChange={(e) => handleChange('raw_text', e.target.value)}
             className="text-base h-[200px] sm:h-[400px] resize-none"
@@ -166,7 +166,7 @@ export function JobForm({ posting, mode = 'create' }) {
               onCheckedChange={handleReanalyzeChange}
             />
             <Label htmlFor="reanalyze" className="cursor-pointer">
-              LLM Tekrar İşlesin
+              Reprocess with LLM
             </Label>
           </div>
         )}
@@ -174,21 +174,21 @@ export function JobForm({ posting, mode = 'create' }) {
         <Button type="submit" disabled={isPending || (isEdit && !isDirty)}>
           {isPending
             ? isEdit
-              ? 'Güncelleniyor...'
-              : 'Kaydediliyor...'
+              ? 'Updating...'
+              : 'Saving...'
             : isEdit
-            ? 'Güncelle'
-            : 'Kaydet'}
+            ? 'Update'
+            : 'Save'}
         </Button>
       </form>
 
       <Dialog open={reanalyzeModalOpen} onOpenChange={setReanalyzeModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Onay Gerekiyor</DialogTitle>
+            <DialogTitle>Confirmation Required</DialogTitle>
             <DialogDescription>
-              LLM tüm ilan datasını baştan yorumlayacak ve token tüketecektir.
-              Onaylıyor musunuz?
+              LLM will re-interpret all job data and consume tokens. Do you
+              confirm?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -196,10 +196,10 @@ export function JobForm({ posting, mode = 'create' }) {
               variant="outline"
               onClick={() => setReanalyzeModalOpen(false)}
             >
-              İptal
+              Cancel
             </Button>
             <Button variant="destructive" onClick={confirmReanalyze}>
-              Onayla
+              Confirm
             </Button>
           </DialogFooter>
         </DialogContent>

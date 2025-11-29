@@ -39,7 +39,7 @@ import { JOB_EXTRACTION_SYSTEM_PROMPT } from './prompts';
  */
 
 /**
- * Dummy LLM Client - LLM yapılandırılmadığında kullanılır
+ * Dummy LLM Client - Used when LLM is not configured
  */
 class DummyLLMClient {
   constructor(modelName = 'gpt-dummy') {
@@ -114,7 +114,7 @@ class OpenAILLMClient {
 }
 
 /**
- * LLM Client Factory - Ortam değişkenlerine göre uygun client'ı seçer
+ * LLM Client Factory - Selects the appropriate client based on environment variables
  * @returns {DummyLLMClient | OpenAILLMClient}
  */
 function createLLMClient() {

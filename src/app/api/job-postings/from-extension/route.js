@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { waitUntil } from '@vercel/functions';
 import { supabase } from '@/lib/supabase';
-import { processSingleJob, isAutoProcessingEnabled } from '@/lib/processSingleJob';
+import {
+  processSingleJob,
+  isAutoProcessingEnabled,
+} from '@/lib/processSingleJob';
 
 const EXTENSION_SHARED_SECRET = process.env.EXTENSION_SHARED_SECRET;
 
@@ -24,7 +27,7 @@ function jsonResponse(data, status = 200) {
 
 export async function POST(request) {
   try {
-    // 1. Token doğrulama
+    // 1. Token validation
     const token = request.headers.get('x-jpm-extension-token');
 
     if (!EXTENSION_SHARED_SECRET) {
@@ -36,7 +39,7 @@ export async function POST(request) {
       return jsonResponse({ error: 'Unauthorized' }, 401);
     }
 
-    // 2. Request body'yi parse et
+    // 2. Parse request body
     let body;
     try {
       body = await request.json();
@@ -44,7 +47,7 @@ export async function POST(request) {
       return jsonResponse({ error: 'Invalid JSON body' }, 400);
     }
 
-    // 3. Gerekli alanları validate et
+    // 3. Validate required fields
     const {
       platform_name,
       url,
@@ -52,7 +55,7 @@ export async function POST(request) {
       job_title,
       company_name,
       location_text,
-      job_badges, // Maaş, Remote, Full-time gibi badge'ler
+      job_badges, // Badges like Salary, Remote, Full-time
     } = body;
 
     if (
@@ -71,7 +74,7 @@ export async function POST(request) {
       return jsonResponse({ error: 'raw_text is required' }, 400);
     }
 
-    // 4. Aynı URL ile daha önce kayıt var mı kontrol et
+    // 4. Check if a record with the same URL already exists
     const { data: existing } = await supabase
       .from('job_postings')
       .select('id')
@@ -88,8 +91,8 @@ export async function POST(request) {
       );
     }
 
-    // 5. raw_text'i zenginleştir - scrape edilen meta bilgileri dahil et
-    // Bu sayede LLM daha kapsamlı veri alır (manuel kopyala-yapıştır gibi)
+    // 5. Enrich raw_text - include scraped meta info
+    // This way LLM gets more comprehensive data (like manual copy-paste)
     const enrichedRawTextParts = [];
 
     if (job_title && typeof job_title === 'string' && job_title.trim() !== '') {
@@ -109,7 +112,7 @@ export async function POST(request) {
     ) {
       enrichedRawTextParts.push(`Location: ${location_text.trim()}`);
     }
-    // Job badges (maaş, remote, full-time vb.)
+    // Job badges (salary, remote, full-time etc.)
     if (Array.isArray(job_badges) && job_badges.length > 0) {
       const validBadges = job_badges
         .filter((b) => typeof b === 'string' && b.trim() !== '')
@@ -119,19 +122,19 @@ export async function POST(request) {
       }
     }
 
-    // Meta bilgileri + orijinal raw_text birleştir
+    // Combine meta info + original raw_text
     const enrichedRawText =
       enrichedRawTextParts.length > 0
         ? `${enrichedRawTextParts.join('\n')}\n\n---\n\n${raw_text.trim()}`
         : raw_text.trim();
 
-    // 6. Yeni job posting insert et
+    // 6. Insert new job posting
     const insertData = {
       platform_name: platform_name.trim(),
       url: url.trim(),
       raw_text: enrichedRawText,
       llm_processed: false,
-      llm_status: 'pending', // Otomatik işleme için gerekli
+      llm_status: 'pending', // Required for auto processing
     };
 
     // console.log('insertData', insertData);
@@ -147,21 +150,28 @@ export async function POST(request) {
       return jsonResponse({ error: 'Database error' }, 500);
     }
 
-    // Otomatik işleme açıksa LLM işlemesini başlat
+    // Start LLM processing if auto processing is enabled
     const autoEnabled = await isAutoProcessingEnabled();
-    
+
     if (autoEnabled) {
-      console.log(`[FromExtension] Auto-processing enabled, starting job: ${data.id}`);
-      
-      // waitUntil: Response hemen döner, işlem arka planda devam eder
-      // Bu Vercel serverless'ta background işlemlerin çalışmasını sağlar
+      console.log(
+        `[FromExtension] Auto-processing enabled, starting job: ${data.id}`
+      );
+
+      // waitUntil: Response returns immediately, process continues in background
+      // This ensures background processes run in Vercel serverless
       waitUntil(
         processSingleJob(data.id).catch((err) => {
-          console.error(`[FromExtension] processSingleJob error for ${data.id}:`, err);
+          console.error(
+            `[FromExtension] processSingleJob error for ${data.id}:`,
+            err
+          );
         })
       );
     } else {
-      console.log(`[FromExtension] Auto-processing disabled, skipping job: ${data.id}`);
+      console.log(
+        `[FromExtension] Auto-processing disabled, skipping job: ${data.id}`
+      );
     }
 
     return jsonResponse({

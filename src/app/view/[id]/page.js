@@ -20,7 +20,7 @@ import {
 import dayjs from 'dayjs';
 
 export const metadata = {
-  title: 'İlan Detayı | Job Postings',
+  title: 'Job Details | Job Postings',
 };
 
 function InfoRow({ label, value }) {
@@ -138,7 +138,7 @@ export default async function ViewJobPage({ params }) {
 
   return (
     <main className="container mx-auto max-w-4xl sm:">
-      <h1 className="mb-4 text-3xl font-bold tracking-tight">İlan Görüntüle</h1>
+      <h1 className="mb-4 text-3xl font-bold tracking-tight">View Job</h1>
       <Card className="mb-6">
         <CardContent>
           <div className="mb-4 flex items-start justify-between">
@@ -154,7 +154,7 @@ export default async function ViewJobPage({ params }) {
                   : 'bg-yellow-600 hover:bg-yellow-600 px-4'
               }
             >
-              {posting.llm_processed ? 'İşlendi' : 'Bekliyor'}
+              {posting.llm_processed ? 'Processed' : 'Pending'}
             </Badge>
           </div>
 
@@ -168,14 +168,14 @@ export default async function ViewJobPage({ params }) {
 
           <div className="space-y-2 text-base">
             <InfoRow
-              label="İlan Eklenme Tarihi"
+              label="Job Added Date"
               value={
                 posting.scraped_at
                   ? dayjs(posting.scraped_at).format('DD/MM/YY HH:mm')
                   : '-'
               }
             />
-            <InfoRow label="LLM İşleme Tarihi" value={getLLMDate()} />
+            <InfoRow label="LLM Processing Date" value={getLLMDate()} />
           </div>
         </CardContent>
       </Card>
@@ -200,19 +200,19 @@ export default async function ViewJobPage({ params }) {
               <div className="flex size-8 items-center justify-center rounded-md bg-blue-500/20 text-blue-500">
                 <Info className="size-4" />
               </div>
-              <span className="font-semibold">İlan Detayları</span>
+              <span className="font-semibold">Job Details</span>
             </div>
           </AccordionTrigger>
           <AccordionContent className="space-y-3 pb-4 pt-2">
-            <InfoRow label="Pozisyon" value={posting.job_title} />
-            <InfoRow label="Şirket" value={posting.company_name} />
-            <InfoRow label="Konum" value={posting.location_text} />
-            <InfoRow label="Çalışma Şekli" value={posting.work_mode} />
-            <InfoRow label="İstihdam Türü" value={posting.employment_type} />
-            <InfoRow label="Seviye" value={posting.seniority_level} />
-            <InfoRow label="Alan" value={posting.domain} />
+            <InfoRow label="Position" value={posting.job_title} />
+            <InfoRow label="Company" value={posting.company_name} />
+            <InfoRow label="Location" value={posting.location_text} />
+            <InfoRow label="Work Mode" value={posting.work_mode} />
+            <InfoRow label="Employment Type" value={posting.employment_type} />
+            <InfoRow label="Level" value={posting.seniority_level} />
+            <InfoRow label="Domain" value={posting.domain} />
             <InfoRow
-              label="Yayınlanma Tarihi"
+              label="Posted Date"
               value={
                 posting.posted_at
                   ? new Date(posting.posted_at).toLocaleDateString('tr-TR')
@@ -229,19 +229,18 @@ export default async function ViewJobPage({ params }) {
               <div className="flex size-8 items-center justify-center rounded-md bg-orange-500/20 text-orange-500">
                 <FileText className="size-4" />
               </div>
-              <span className="font-semibold">Açıklama ve Gereksinimler</span>
+              <span className="font-semibold">
+                Description and Requirements
+              </span>
             </div>
           </AccordionTrigger>
           <AccordionContent className="space-y-6 pb-4 pt-2">
-            <TextBlock label="Açıklama" value={posting.description_full} />
+            <TextBlock label="Description" value={posting.description_full} />
             <TextBlock
-              label="Sorumluluklar"
+              label="Responsibilities"
               value={posting.responsibilities_text}
             />
-            <TextBlock
-              label="Gereksinimler"
-              value={posting.requirements_text}
-            />
+            <TextBlock label="Requirements" value={posting.requirements_text} />
             <TextBlock label="Nice to Have" value={posting.nice_to_have_text} />
           </AccordionContent>
         </AccordionItem>
@@ -253,12 +252,12 @@ export default async function ViewJobPage({ params }) {
               <div className="flex size-8 items-center justify-center rounded-md bg-green-500/20 text-green-500">
                 <DollarSign className="size-4" />
               </div>
-              <span className="font-semibold">Maaş ve Yan Haklar</span>
+              <span className="font-semibold">Salary and Benefits</span>
             </div>
           </AccordionTrigger>
           <AccordionContent className="space-y-4 pb-4 pt-2">
             <InfoRow
-              label="Maaş Aralığı"
+              label="Salary Range"
               value={
                 posting.salary_min || posting.salary_max
                   ? `${posting.salary_min || '?'} - ${
@@ -269,7 +268,7 @@ export default async function ViewJobPage({ params }) {
                   : '-'
               }
             />
-            <TextBlock label="Yan Haklar" value={posting.benefits_text} />
+            <TextBlock label="Benefits" value={posting.benefits_text} />
           </AccordionContent>
         </AccordionItem>
 
@@ -280,19 +279,19 @@ export default async function ViewJobPage({ params }) {
               <div className="flex size-8 items-center justify-center rounded-md bg-purple-500/20 text-purple-500">
                 <Tags className="size-4" />
               </div>
-              <span className="font-semibold">Yetenekler ve Etiketler</span>
+              <span className="font-semibold">Skills and Tags</span>
             </div>
           </AccordionTrigger>
           <AccordionContent className="space-y-6 pb-4 pt-2">
             <div>
               <p className="mb-3 font-semibold text-muted-foreground">
-                Gerekli Yetenekler:
+                Required Skills:
               </p>
               <SkillBadges skills={posting.skills_required} />
             </div>
             <div>
               <p className="mb-3 font-semibold text-muted-foreground">
-                Tercih Sebebi Yetenekler:
+                Nice to Have Skills:
               </p>
               <SkillBadges
                 skills={posting.skills_nice_to_have}
@@ -300,9 +299,7 @@ export default async function ViewJobPage({ params }) {
               />
             </div>
             <div>
-              <p className="mb-3 font-semibold text-muted-foreground">
-                Etiketler:
-              </p>
+              <p className="mb-3 font-semibold text-muted-foreground">Tags:</p>
               <SkillBadges
                 skills={posting.tags}
                 variant="outline"
@@ -319,15 +316,12 @@ export default async function ViewJobPage({ params }) {
               <div className="flex size-8 items-center justify-center rounded-md bg-cyan-500/20 text-cyan-500">
                 <Bot className="size-4" />
               </div>
-              <span className="font-semibold">LLM İşlem Bilgileri</span>
+              <span className="font-semibold">LLM Processing Info</span>
             </div>
           </AccordionTrigger>
           <AccordionContent className="space-y-4 pb-4 pt-2">
-            <InfoRow
-              label="Model Versiyonu"
-              value={posting.llm_model_version}
-            />
-            <TextBlock label="LLM Notları" value={posting.llm_notes} />
+            <InfoRow label="Model Version" value={posting.llm_model_version} />
+            <TextBlock label="LLM Notes" value={posting.llm_notes} />
           </AccordionContent>
         </AccordionItem>
 
@@ -338,7 +332,7 @@ export default async function ViewJobPage({ params }) {
               <div className="flex size-8 items-center justify-center rounded-md bg-gray-500/20 text-gray-400">
                 <Code className="size-4" />
               </div>
-              <span className="font-semibold">Ham Metin</span>
+              <span className="font-semibold">Raw Text</span>
             </div>
           </AccordionTrigger>
           <AccordionContent className="pb-4 pt-2">

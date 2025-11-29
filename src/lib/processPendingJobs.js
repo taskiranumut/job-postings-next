@@ -2,13 +2,13 @@ import { supabase } from './supabase';
 import { llmClient } from './llmClient';
 import { LLM_STATUS } from './processSingleJob';
 
-// Timeout süresi: 5 dakika (ms cinsinden)
+// Timeout duration: 5 minutes (in ms)
 const PROCESSING_TIMEOUT_MS = 5 * 60 * 1000;
 
 /**
- * Bekleyen iş ilanlarını işler (çakışma korumalı)
- * @param {number} limit - İşlenecek maksimum ilan sayısı
- * @returns {Promise<Object>} İşlem sonucu
+ * Process pending job postings (concurrency protected)
+ * @param {number} limit - Maximum number of jobs to process
+ * @returns {Promise<Object>} Process result
  */
 export async function processPendingJobs(limit = 5) {
   const modelName = process.env.LLM_MODEL_NAME || 'gpt-4o-mini';
@@ -21,27 +21,34 @@ export async function processPendingJobs(limit = 5) {
   const processedJobs = [];
 
   try {
-    // 1. Bekleyen ilanları çek (pending/failed status veya timeout olanlar)
+    // 1. Fetch pending jobs (pending/failed status or timed out)
     const { data: pendingJobs, error: fetchError } = await supabase
       .from('job_postings')
       .select('id, platform_name, url, raw_text, llm_status, llm_started_at')
-      .in('llm_status', [LLM_STATUS.PENDING, LLM_STATUS.FAILED, LLM_STATUS.PROCESSING])
+      .in('llm_status', [
+        LLM_STATUS.PENDING,
+        LLM_STATUS.FAILED,
+        LLM_STATUS.PROCESSING,
+      ])
       .order('scraped_at', { ascending: true })
-      .limit(limit * 2); // Fazladan çek, bazıları skip edilebilir
+      .limit(limit * 2); // Fetch extra, some might be skipped
 
     if (fetchError) {
       throw new Error(`Fetch failed: ${fetchError.message}`);
     }
 
-    // İşlenebilir olanları filtrele (pending/failed veya processing ama timeout)
+    // Filter processable ones (pending/failed or processing but timed out)
     const timeoutMs = Date.now() - PROCESSING_TIMEOUT_MS;
     const availableJobs = (pendingJobs || [])
       .filter((job) => {
-        // Pending veya Failed durumundakiler her zaman işlenebilir
-        if (job.llm_status === LLM_STATUS.PENDING || job.llm_status === LLM_STATUS.FAILED) {
+        // Pending or Failed ones are always processable
+        if (
+          job.llm_status === LLM_STATUS.PENDING ||
+          job.llm_status === LLM_STATUS.FAILED
+        ) {
           return true;
         }
-        // Processing durumundakiler sadece timeout olduysa işlenebilir
+        // Processing ones are processable only if timed out
         if (job.llm_status === LLM_STATUS.PROCESSING) {
           if (!job.llm_started_at) return true;
           return new Date(job.llm_started_at).getTime() < timeoutMs;
@@ -63,10 +70,10 @@ export async function processPendingJobs(limit = 5) {
 
     console.log(`[BatchProcess] Found ${availableJobs.length} pending jobs.`);
 
-    // 2. Her ilanı işle
+    // 2. Process each job
     for (const job of availableJobs) {
       try {
-        // 2a. Claim: llm_status'u 'processing' yap ve llm_started_at'ı güncelle
+        // 2a. Claim: set llm_status to 'processing' and update llm_started_at
         const { error: claimError } = await supabase
           .from('job_postings')
           .update({
@@ -74,14 +81,18 @@ export async function processPendingJobs(limit = 5) {
             llm_started_at: now,
           })
           .eq('id', job.id)
-          .in('llm_status', [LLM_STATUS.PENDING, LLM_STATUS.FAILED, LLM_STATUS.PROCESSING]);
+          .in('llm_status', [
+            LLM_STATUS.PENDING,
+            LLM_STATUS.FAILED,
+            LLM_STATUS.PROCESSING,
+          ]);
 
         if (claimError) {
           console.log(`[BatchProcess] Job ${job.id} claim failed, skipping.`);
           continue;
         }
 
-        // 2b. LLM Çağrısı (süre ölçümü ile)
+        // 2b. LLM Call (with duration measurement)
         const startTime = Date.now();
         const extraction = await llmClient.parseJobPosting({
           platform_name: job.platform_name,
@@ -94,7 +105,7 @@ export async function processPendingJobs(limit = 5) {
           `[BatchProcess] Processed: ${extraction.job_title} @ ${extraction.company_name} (${durationMs}ms)`
         );
 
-        // 2c. DB Update (başarılı) - llm_status = 'completed'
+        // 2c. DB Update (success) - llm_status = 'completed'
         const { error: updateError } = await supabase
           .from('job_postings')
           .update({
@@ -109,7 +120,7 @@ export async function processPendingJobs(limit = 5) {
 
         if (updateError) throw updateError;
 
-        // 2d. Log kaydı
+        // 2d. Log record
         await supabase.from('llm_logs').insert({
           job_posting_id: job.id,
           level: 'info',
@@ -129,7 +140,7 @@ export async function processPendingJobs(limit = 5) {
         console.error(`[BatchProcess] Error processing job ${job.id}:`, err);
         errorCount++;
 
-        // Hata logu
+        // Error log
         await supabase.from('llm_logs').insert({
           job_posting_id: job.id,
           level: 'error',
@@ -137,7 +148,7 @@ export async function processPendingJobs(limit = 5) {
           details: { error: err.message || String(err) },
         });
 
-        // llm_status'u 'failed' yap ve kilidi kaldır
+        // Set llm_status to 'failed' and release lock
         await supabase
           .from('job_postings')
           .update({
