@@ -371,16 +371,16 @@ export function LLMDashboardClient({
         <div className="mb-4 grid gap-4 sm:grid-cols-3">
           <Card>
             <CardContent>
-              <p className="text-base font-semibold uppercase text-muted-foreground">
-                Total Jobs
+              <p className="text-base font-semibold text-muted-foreground">
+                TOTAL JOBS
               </p>
               <p className="mt-1 text-3xl font-bold">{status.total_postings}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent>
-              <p className="text-base font-semibold uppercase text-muted-foreground">
-                Processed
+              <p className="text-base font-semibold text-muted-foreground">
+                PROCESSED
               </p>
               <p className="mt-1 text-3xl font-bold text-green-500">
                 {status.total_processed}
@@ -389,8 +389,8 @@ export function LLMDashboardClient({
           </Card>
           <Card>
             <CardContent>
-              <p className="text-base font-semibold uppercase text-muted-foreground">
-                Pending
+              <p className="text-base font-semibold text-muted-foreground">
+                PENDING
               </p>
               <p className="mt-1 text-3xl font-bold text-orange-500">
                 {status.total_pending}
@@ -405,9 +405,7 @@ export function LLMDashboardClient({
         <div className="mb-4 grid gap-4 sm:grid-cols-3">
           <Card className="border-blue-500/30 bg-blue-500/5">
             <CardContent>
-              <p className="text-sm font-semibold uppercase text-blue-400">
-                Today
-              </p>
+              <p className="text-sm font-semibold text-blue-400">TODAY</p>
               <p className="mt-1 text-2xl font-bold">
                 {status.stats.today.count} processed
               </p>
@@ -425,9 +423,7 @@ export function LLMDashboardClient({
           </Card>
           <Card className="border-purple-500/30 bg-purple-500/5">
             <CardContent>
-              <p className="text-sm font-semibold uppercase text-purple-400">
-                This Week
-              </p>
+              <p className="text-sm font-semibold text-purple-400">THIS WEEK</p>
               <p className="mt-1 text-2xl font-bold">
                 {status.stats.week.count} processed
               </p>
@@ -445,9 +441,7 @@ export function LLMDashboardClient({
           </Card>
           <Card className="border-emerald-500/30 bg-emerald-500/5">
             <CardContent>
-              <p className="text-sm font-semibold uppercase text-emerald-400">
-                Total
-              </p>
+              <p className="text-sm font-semibold text-emerald-400">TOTAL</p>
               <p className="mt-1 text-2xl font-bold">
                 {status.stats.allTime.count} processed
               </p>

@@ -281,7 +281,8 @@ SALARY FIELDS
 ---------------------------------------
 
 "salary_min", "salary_max":
-- Numeric values (JSON numbers) representing the salary range.
+- Numeric values (JSON numbers) representing the salary range for THIS ROLE.
+- Always try to extract a concrete range if the text clearly provides one.
 - Examples:
   - "£40–50k", "£40,000 - £50,000" per year → salary_min = 40000, salary_max = 50000.
   - "€400 per day" → salary_min = 400, salary_max = 400.
@@ -289,24 +290,39 @@ SALARY FIELDS
   - "40k" → 40000 (if clearly yearly).
 - If only one number is given:
   - "£65,000 per year" → salary_min = 65000, salary_max = 65000.
-- If there is no salary information, set both to null.
+
+SPECIAL RULE FOR MULTI-COUNTRY SALARY TABLES:
+- Sometimes the job posting lists annual ranges for multiple countries, e.g.:
+  - "United States: $119,900 to $193,200"
+  - "Germany: €77,400 to €128,100"
+  - "United Kingdom: £75,300 to £123,800"
+  - "Singapore: S$148,900 to S$223,300"
+- In such cases:
+  1) Look at the job's location_text (and other clear location signals).
+  2) If one of the listed countries clearly matches the location (e.g. location_text includes "United Kingdom"), you MUST use the range for that country as salary_min and salary_max.
+  3) If the job is clearly tied to one country in the description (for example, "Location: United Kingdom" or "Remote in UK"), you should still pick the matching row even if the role is remote.
+  4) Only if there is NO way to tell which country applies (for example, fully global role with many ranges and no primary location), then set salary_min and salary_max to null.
+
+- If there is absolutely no salary information anywhere in the text, set both to null.
 
 "salary_currency":
 - Common currency codes:
   - "GBP" for "£" or "GBP".
   - "EUR" for "€" or "EUR".
   - "USD" for "$" or "USD".
-- Choose the obvious currency from the text.
-- If no currency symbol or code is given, set null.
+  - "SGD" for "S$" or "SGD".
+- For multi-country tables, once you choose which country row applies (based on the rules above), use the correct currency code for that row.
+- If no currency symbol or code is given at all, set salary_currency to null.
 
 "salary_period":
 - Possible values: "year", "month", "day", "hour".
 - Map:
-  - "per year", "per annum", "pa", "annual" → "year".
+  - "per year", "per annum", "pa", "annual", "Annual Total Target Cash" → "year".
   - "per month" → "month".
   - "per day" → "day".
   - "per hour" → "hour".
-- If salary is mentioned but the period is ambiguous, set null.
+- For salary tables that explicitly talk about annual total target cash or annual ranges across countries, you MUST set salary_period = "year".
+- If salary is mentioned but the period is genuinely ambiguous (no hint at all whether per year, per day, etc.), set salary_period to null.
 - If there is no salary, set salary_period to null.
 
 ---------------------------------------
